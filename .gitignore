@@ -1,0 +1,45 @@
+# Audio files (usually too large for git)
+*.mp3
+*.m4a
+*.wav
+*.flac
+*.ogg
+*.aac
+*.wma
+
+# Transcript output files
+*_transcript.txt
+*.txt
+!README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Temporary files
+*.tmp
+*.temp
+audio_chunks_*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API keys (if accidentally committed)
+.env
+*.key
+
