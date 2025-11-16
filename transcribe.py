@@ -163,8 +163,41 @@ def transcribe_audio(
     
     genai.configure(api_key=api_key)
     
-    # Use Gemini 1.5 Pro which supports audio input
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    # Find an available model that supports generateContent
+    # Prefer models that support audio (1.5 series)
+    model = None
+    preferred_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    
+    # First, try to get list of available models
+    try:
+        available_models = [m.name.split('/')[-1] for m in genai.list_models() 
+                           if 'generateContent' in m.supported_generation_methods]
+        print(f"Available models: {', '.join(available_models)}")
+        
+        # Try preferred models in order
+        for model_name in preferred_models:
+            if model_name in available_models:
+                model = genai.GenerativeModel(model_name)
+                print(f"Using model: {model_name}")
+                break
+        
+        # If none of the preferred models are available, use the first available one
+        if model is None and available_models:
+            model_name = available_models[0]
+            model = genai.GenerativeModel(model_name)
+            print(f"Using available model: {model_name}")
+    except Exception as e:
+        print(f"Could not list models, trying default: {e}")
+        # Fallback: try gemini-1.5-flash directly
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            print("Using model: gemini-1.5-flash")
+        except:
+            model = genai.GenerativeModel('gemini-pro')
+            print("Using model: gemini-pro")
+    
+    if model is None:
+        raise ValueError("Could not initialize a Gemini model. Please check your API key.")
     
     # Step 1: Chunk the audio file
     chunk_length_ms = chunk_length_minutes * 60 * 1000
