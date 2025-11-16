@@ -11,6 +11,7 @@
 *_transcript.txt
 *.txt
 !README.md
+!requirements.txt
 
 # Python
 __pycache__/
