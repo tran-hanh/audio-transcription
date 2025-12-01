@@ -44,3 +44,4 @@ After deploying, check the build logs:
 
 If Render still uses Python 3.13 after these steps, the `audioop-lts` package in `requirements.txt` will handle it automatically. But Python 3.12 is preferred.
 
+
