@@ -1,42 +1,22 @@
 # CI/CD Pipeline Documentation
 
-This project uses GitHub Actions for continuous integration and deployment.
+This project uses a **single unified CI/CD pipeline** that handles testing, linting, and deployment.
 
 ## Workflow Overview
 
-### 1. **CI Pipeline** (`.github/workflows/ci.yml`)
-Runs on every push and pull request to `main` or `develop` branches.
+### **Unified CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
+
+One workflow that handles everything:
 
 **Jobs:**
-- **Test**: Runs pytest tests on Python 3.12 and 3.13
-- **Lint**: Runs pylint for code quality checks
+1. **Test** - Runs pytest tests on Python 3.12 and 3.13
+2. **Lint** - Runs pylint for code quality checks
+3. **Deploy** - Deploys to GitHub Pages (only if tests and lint pass)
 
 **Triggers:**
-- Push to `main` or `develop`
-- Pull requests to `main` or `develop`
+- Push to `main` branch
+- Pull requests to `main` branch
 - Manual trigger via `workflow_dispatch`
-
-### 2. **Test Workflow** (`.github/workflows/test.yml`)
-Dedicated test workflow with comprehensive coverage reporting.
-
-**Features:**
-- Tests on Python 3.12 and 3.13
-- Generates coverage reports
-- Uploads coverage to Codecov
-- Includes linting step
-
-### 3. **Deploy Workflow** (`.github/workflows/deploy.yml`)
-Deploys to GitHub Pages **only after tests pass**.
-
-**Pipeline:**
-1. ✅ **Test** - Runs all pytest tests
-2. ✅ **Lint** - Runs pylint checks
-3. 🚀 **Deploy** - Deploys to GitHub Pages (only if tests pass)
-
-**Safety:** Deployment is blocked if tests fail!
-
-### 4. **Pylint Workflow** (`.github/workflows/pylint.yml`)
-Standalone code quality checks.
 
 ## How It Works
 
@@ -48,61 +28,114 @@ Standalone code quality checks.
 │    main     │
 └──────┬──────┘
        │
-       ├─────────────────┐
-       │                 │
-       ▼                 ▼
-┌──────────┐      ┌──────────┐
-│   CI     │      │  Test    │
-│ Pipeline │      │ Workflow │
-└────┬─────┘      └──────────┘
-     │
-     ├─── Test (3.12, 3.13)
-     │
-     ├─── Lint
-     │
-     └───► If all pass ──┐
-                          │
-                          ▼
-                   ┌──────────────┐
-                   │   Deploy     │
-                   │   Workflow   │
-                   └──────┬───────┘
-                          │
-                          ├─── Test (required)
-                          │
-                          ├─── Lint (required)
-                          │
-                          └─── Deploy to GitHub Pages
+       ▼
+┌─────────────────────┐
+│   CI/CD Pipeline    │
+└──────┬──────────────┘
+       │
+       ├───┐
+       │   │
+       ▼   ▼
+   ┌────┐ ┌────┐
+   │Test│ │Lint│  (Run in parallel)
+   └─┬──┘ └─┬──┘
+     │      │
+     └──┬───┘
+        │
+        ▼
+   ┌─────────┐
+   │  Deploy │  (Only if both pass)
+   │  Pages  │
+   └─────────┘
 ```
 
-## Test Requirements
+### On Pull Request:
 
-Tests **must pass** before:
-- ✅ Code can be merged (via PR checks)
-- ✅ Deployment to GitHub Pages
-- ✅ Any production deployment
+```
+┌─────────────┐
+│ Pull Request│
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────┐
+│   CI/CD Pipeline    │
+└──────┬──────────────┘
+       │
+       ├───┐
+       │   │
+       ▼   ▼
+   ┌────┐ ┌────┐
+   │Test│ │Lint│  (Run in parallel)
+   └────┘ └────┘
+   
+   (No deployment on PRs)
+```
+
+## Pipeline Stages
+
+### 1. Test Job
+- **Runs on:** Python 3.12 and 3.13 (matrix strategy)
+- **Steps:**
+  - Checkout code
+  - Set up Python
+  - Install dependencies
+  - Run pytest tests
+  - Generate coverage report
+  - Upload to Codecov
+
+### 2. Lint Job
+- **Runs on:** Python 3.12
+- **Steps:**
+  - Checkout code
+  - Set up Python
+  - Install pylint
+  - Run pylint on all Python files
+
+### 3. Deploy Job
+- **Runs only if:**
+  - Test job passes ✅
+  - Lint job passes ✅
+  - Push to `main` branch (not PRs)
+- **Steps:**
+  - Checkout code
+  - Setup GitHub Pages
+  - Upload artifact
+  - Deploy to GitHub Pages
+
+## Safety Features
+
+✅ **Deployment is blocked if:**
+- Tests fail
+- Linting fails
+- Running on a pull request (not main branch)
+
+✅ **Tests run on multiple Python versions:**
+- Python 3.12
+- Python 3.13
+
+✅ **Parallel execution:**
+- Test and Lint jobs run simultaneously for faster feedback
 
 ## Coverage Reports
 
 Coverage reports are generated and uploaded to:
-- **Codecov**: Automatic coverage tracking
+- **Codecov**: Automatic coverage tracking (optional token)
 - **GitHub Actions**: View in Actions tab → Artifacts
 
-## Manual Testing
+## Manual Trigger
 
-You can manually trigger workflows:
+You can manually trigger the workflow:
 1. Go to **Actions** tab in GitHub
-2. Select the workflow (CI, Test, Deploy)
+2. Select **CI/CD Pipeline**
 3. Click **Run workflow**
 4. Select branch and click **Run workflow**
 
-## Workflow Status Badges
+## Workflow Status Badge
 
-Add these to your README.md:
+Add this to your README.md:
 
 ```markdown
-![Tests](https://github.com/yourusername/audio_transcription/workflows/Run%20Tests/badge.svg)
-![Deploy](https://github.com/yourusername/audio_transcription/workflows/Deploy%20to%20GitHub%20Pages/badge.svg)
+![CI/CD](https://github.com/yourusername/audio_transcription/workflows/CI/CD%20Pipeline/badge.svg)
 ```
 
 ## Troubleshooting
@@ -114,8 +147,9 @@ Add these to your README.md:
 
 ### Deployment Blocked
 - Tests must pass before deployment
-- Check the "Test" and "Lint" jobs in deploy workflow
-- Fix any failing tests or lint errors
+- Linting must pass before deployment
+- Only runs on push to `main` (not PRs)
+- Check the "Test" and "Lint" jobs in the workflow
 
 ### Coverage Not Uploading
 - Codecov token is optional (workflow will still run)
@@ -137,10 +171,14 @@ Add these to your README.md:
 
 4. **Monitor deployment** after merge to main
 
-## Workflow Files
+## Workflow File
 
-- `.github/workflows/ci.yml` - Main CI pipeline
-- `.github/workflows/test.yml` - Comprehensive test suite
-- `.github/workflows/deploy.yml` - Deployment with test gates
-- `.github/workflows/pylint.yml` - Code quality checks
+- `.github/workflows/ci-cd.yml` - Unified CI/CD pipeline
 
+## Benefits of Unified Pipeline
+
+✅ **Simpler**: One workflow file instead of multiple
+✅ **Faster**: Jobs run in parallel
+✅ **Clearer**: Easy to see the full pipeline flow
+✅ **Safer**: Deployment only happens after all checks pass
+✅ **Easier to maintain**: Single source of truth
