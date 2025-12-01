@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { OutputSection } from '../OutputSection'
 
@@ -15,19 +15,35 @@ vi.mock('../../utils/fileUtils', () => ({
 describe('OutputSection', () => {
   const mockOnReset = vi.fn()
   const mockTranscript = 'This is a test transcript.'
-  let mockWriteText: ReturnType<typeof vi.fn>
+  const mockWriteText = vi.fn().mockResolvedValue(undefined)
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // Mock clipboard API before each test
-    mockWriteText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
+    mockWriteText.mockClear()
+    
+    // Ensure navigator exists
+    if (typeof navigator === 'undefined') {
+      // @ts-expect-error - Adding navigator for testing
+      globalThis.navigator = {}
+    }
+    
+    // Mock clipboard API - use defineProperty to ensure it's configurable
+    try {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: mockWriteText,
+        },
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      })
+    } catch (e) {
+      // If it already exists, try to update it
+      // @ts-expect-error - May not be writable
+      navigator.clipboard = {
         writeText: mockWriteText,
-      },
-      writable: true,
-      configurable: true,
-    })
+      }
+    }
   })
 
   it('should render transcript text', () => {
@@ -77,6 +93,10 @@ describe('OutputSection', () => {
   it('should copy transcript to clipboard when copy button is clicked', async () => {
     const user = userEvent.setup()
 
+    // Ensure clipboard mock is accessible
+    expect(navigator.clipboard).toBeDefined()
+    expect(navigator.clipboard.writeText).toBe(mockWriteText)
+
     render(
       <OutputSection
         transcript={mockTranscript}
@@ -86,12 +106,17 @@ describe('OutputSection', () => {
     )
 
     const copyButton = screen.getByText(/copy to clipboard/i)
+    
+    // Click the button
     await user.click(copyButton)
 
-    // Wait for async clipboard operation
-    await new Promise(resolve => setTimeout(resolve, 0))
-
-    expect(mockWriteText).toHaveBeenCalledWith(mockTranscript)
+    // Wait for async clipboard operation to complete
+    await waitFor(() => {
+      expect(mockWriteText).toHaveBeenCalledWith(mockTranscript)
+    }, { timeout: 2000 })
+    
+    // Also verify it was called exactly once
+    expect(mockWriteText).toHaveBeenCalledTimes(1)
   })
 
   it('should call onReset when reset button is clicked', async () => {
