@@ -20,7 +20,7 @@ describe('TranscriptionService', () => {
 
   describe('healthCheck', () => {
     it('should return true when health endpoint responds with OK', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
       })
@@ -31,7 +31,7 @@ describe('TranscriptionService', () => {
     })
 
     it('should return false when health endpoint fails', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
         status: 500,
       })
@@ -41,7 +41,7 @@ describe('TranscriptionService', () => {
     })
 
     it('should return false when fetch throws an error', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('Network error')
       )
 
@@ -68,7 +68,7 @@ describe('TranscriptionService', () => {
         },
       }
 
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       try {
         await service.transcribe(mockFile, 12, vi.fn())
@@ -92,7 +92,7 @@ describe('TranscriptionService', () => {
         json: vi.fn().mockResolvedValueOnce({ error: 'Server error' }),
       }
 
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       await expect(
         service.transcribe(mockFile, 12, vi.fn())
@@ -127,7 +127,7 @@ describe('TranscriptionService', () => {
         },
       }
 
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       try {
         await service.transcribe(mockFile, 12, progressCallback)
@@ -167,7 +167,7 @@ describe('TranscriptionService', () => {
         },
       }
 
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       try {
         const result = await service.transcribe(mockFile, 12, vi.fn())
@@ -183,7 +183,7 @@ describe('TranscriptionService', () => {
         body: null,
       }
 
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
         'No response body'
