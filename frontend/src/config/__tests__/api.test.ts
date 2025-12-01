@@ -13,7 +13,12 @@ describe('API Configuration', () => {
   })
 
   afterEach(() => {
-    window.location = originalLocation
+    // Restore original location
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    })
   })
 
   it('should use localhost URL for local development', async () => {
