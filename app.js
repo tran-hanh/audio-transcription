@@ -43,6 +43,9 @@ if (!dropZone) {
 }
 if (!fileInput) {
     console.error('fileInput element not found!');
+} else {
+    // Ensure file input is properly configured
+    fileInput.setAttribute('tabindex', '-1');
 }
 const processingSection = document.getElementById('processingSection');
 const fileNameDisplay = document.getElementById('fileNameDisplay');
@@ -66,12 +69,13 @@ let currentTranscript = null;
 if (dropZone && fileInput) {
     // Click handler for drop zone - opens file picker
     dropZone.addEventListener('click', (e) => {
-        console.log('Drop zone clicked, current state:', currentState);
         if (currentState === STATE.IDLE) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('Triggering file input click');
-            fileInput.click();
+            // Use setTimeout to ensure the click happens after event propagation
+            setTimeout(() => {
+                fileInput.click();
+            }, 0);
         }
     });
 
