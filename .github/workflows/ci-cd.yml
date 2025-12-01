@@ -147,6 +147,9 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+        env:
+          NODE_ENV: production
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
