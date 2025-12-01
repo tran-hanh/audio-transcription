@@ -67,15 +67,12 @@ let currentTranscript = null;
 
 // File Input Handling
 if (dropZone && fileInput) {
-    // Click handler for drop zone - opens file picker
+    // Using label element, so native click will work
+    // Just need to handle the state check
     dropZone.addEventListener('click', (e) => {
-        if (currentState === STATE.IDLE) {
+        if (currentState !== STATE.IDLE) {
             e.preventDefault();
             e.stopPropagation();
-            // Use setTimeout to ensure the click happens after event propagation
-            setTimeout(() => {
-                fileInput.click();
-            }, 0);
         }
     });
 
