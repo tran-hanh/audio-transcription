@@ -13,9 +13,33 @@ from pathlib import Path
 
 import pytest
 
+# Set test API key before importing app
+os.environ.setdefault('GEMINI_API_KEY', 'test-api-key-for-testing')
+
 # Add backend directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'backend'))
-from app import app, allowed_file, send_progress, MAX_FILE_SIZE
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from backend.app import app
+from backend.config import Config
+from backend.validators import FileValidator
+from backend.services import TranscriptionService
+
+# Create test fixtures for functions that may not be directly exported
+config = Config.from_env()
+MAX_FILE_SIZE = config.max_file_size
+validator = FileValidator(
+    allowed_extensions=config.allowed_extensions,
+    max_size=MAX_FILE_SIZE
+)
+transcription_service = TranscriptionService(config)
+
+def allowed_file(filename: str) -> bool:
+    """Helper function to check if file is allowed"""
+    is_valid, _ = validator.validate_filename(filename)
+    return is_valid
+
+def send_progress(progress: int, message: str) -> str:
+    """Helper function to format progress message"""
+    return transcription_service.send_progress(progress, message)
 
 
 @pytest.fixture
