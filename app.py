@@ -61,9 +61,9 @@ def transcribe():
         # Get API key from environment variable (set in Render)
         api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            return jsonify({
-                'error': 'GEMINI_API_KEY not configured. Please set it in Render environment variables.'
-            }), 500
+            error_msg = ('GEMINI_API_KEY not configured. '
+                        'Please set it in Render environment variables.')
+            return jsonify({'error': error_msg}), 500
 
         # Get chunk length
         chunk_length = int(request.form.get('chunk_length', 12))
