@@ -1,0 +1,374 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f5f5f5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Main Container */
+.main-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    max-width: 42rem; /* max-w-2xl equivalent */
+    width: 100%;
+    padding: 3rem 2.5rem;
+}
+
+/* Header Section */
+.header-section {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.header-section h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: #1a1a1a;
+}
+
+.subtitle {
+    font-size: 0.95rem;
+    color: #666;
+    max-width: 32rem;
+    margin: 0 auto;
+}
+
+/* Error Alert */
+.error-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background-color: #fee;
+    border: 1px solid #fcc;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    color: #c33;
+}
+
+.error-icon {
+    font-size: 1.25rem;
+}
+
+.error-text {
+    flex: 1;
+    font-size: 0.9rem;
+}
+
+/* Drop Zone Section */
+.drop-zone-section {
+    margin-bottom: 2rem;
+}
+
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #fafafa;
+}
+
+.drop-zone:hover {
+    border-color: #999;
+    background-color: #f5f5f5;
+}
+
+.drop-zone.dragover {
+    border-color: #0066cc;
+    background-color: #e6f2ff;
+}
+
+.upload-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1.5rem;
+    color: #666;
+}
+
+.drop-zone-primary {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.drop-zone-secondary {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.drop-zone-formats {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 1rem;
+}
+
+/* Processing Section */
+.processing-section {
+    margin-bottom: 2rem;
+}
+
+.file-display {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+
+.audio-icon {
+    width: 24px;
+    height: 24px;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.file-name-display {
+    font-size: 0.95rem;
+    color: #333;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.progress-container {
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #0066cc;
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+.progress-bar.indeterminate .progress-fill {
+    width: 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, #0066cc 0%, #4da6ff 50%, #0066cc 100%);
+    background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.status-text {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Output Section */
+.output-section {
+    margin-bottom: 2rem;
+}
+
+.output-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.text-area-container {
+    margin-bottom: 1.5rem;
+}
+
+.transcript-textarea {
+    width: 100%;
+    min-height: 300px;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #333;
+    resize: vertical;
+    overflow-y: auto;
+}
+
+.transcript-textarea:focus {
+    outline: none;
+    border-color: #0066cc;
+    background-color: white;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-tertiary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    font-family: inherit;
+}
+
+.btn-primary {
+    background-color: #0066cc;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0052a3;
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: #0066cc;
+    border: 1.5px solid #0066cc;
+}
+
+.btn-secondary:hover {
+    background-color: #f0f7ff;
+}
+
+.btn-tertiary {
+    background-color: transparent;
+    color: #666;
+    border: none;
+    text-decoration: underline;
+    padding: 0.75rem;
+}
+
+.btn-tertiary:hover {
+    color: #333;
+}
+
+.btn-icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* API Key Container */
+.api-key-container {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.api-key-container label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.api-key-container input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.api-key-container input:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.api-key-container small {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.api-key-container small a {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.api-key-container small a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+    .main-container {
+        padding: 2rem 1.5rem;
+    }
+
+    .header-section h1 {
+        font-size: 1.75rem;
+    }
+
+    .drop-zone {
+        padding: 2rem 1.5rem;
+    }
+
+    .upload-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .action-buttons {
+        gap: 0.5rem;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-tertiary {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}

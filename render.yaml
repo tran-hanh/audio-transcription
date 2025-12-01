@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: audio-transcription-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false  # Set this in Render dashboard
+    disk:
+      name: audio-transcription-disk
+      mountPath: /tmp
+      sizeGB: 1
+

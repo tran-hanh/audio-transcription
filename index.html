@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Scribe</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header Section -->
+        <header class="header-section">
+            <h1>Audio Scribe</h1>
+            <p class="subtitle">Upload an MP3 or WAV file to generate a text transcript, then download the result.</p>
+        </header>
+
+        <!-- Error Alert (Conditional) -->
+        <div class="error-alert" id="errorAlert" style="display: none;">
+            <span class="error-icon">⚠️</span>
+            <span class="error-text" id="errorText"></span>
+        </div>
+
+        <!-- Drop Zone Section (State 1: Idle) -->
+        <div class="drop-zone-section" id="dropZoneSection">
+            <div class="drop-zone" id="dropZone">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p class="drop-zone-primary">Drag & Drop your audio file here</p>
+                <p class="drop-zone-secondary">or click to browse files</p>
+                <p class="drop-zone-formats">Supports MP3, WAV, M4A (Max 25MB)</p>
+                <input type="file" id="fileInput" accept="audio/*" hidden>
+            </div>
+        </div>
+
+        <!-- Processing Section (State 2: Processing) -->
+        <div class="processing-section" id="processingSection" style="display: none;">
+            <div class="file-display">
+                <svg class="audio-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="file-name-display" id="fileNameDisplay"></span>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            <p class="status-text" id="statusText">Uploading...</p>
+        </div>
+
+        <!-- Output Section (State 3: Results) -->
+        <div class="output-section" id="outputSection" style="display: none;">
+            <h2 class="output-header">Transcription Result:</h2>
+            <div class="text-area-container">
+                <textarea class="transcript-textarea" id="transcriptTextarea" readonly></textarea>
+            </div>
+            <div class="action-buttons">
+                <button class="btn-primary" id="downloadBtn">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download Script (.txt)
+                </button>
+                <button class="btn-secondary" id="copyBtn">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy to Clipboard
+                </button>
+                <button class="btn-tertiary" id="resetBtn">Convert Another File</button>
+            </div>
+        </div>
+
+        <!-- API Key Input (Hidden by default, shown in settings or on first use) -->
+        <div class="api-key-container" id="apiKeyContainer" style="display: none;">
+            <label for="apiKeyInput">Google Gemini API Key:</label>
+            <input type="password" id="apiKeyInput" placeholder="Enter your API key">
+            <small>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank">Get your API key here</a>
+            </small>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
