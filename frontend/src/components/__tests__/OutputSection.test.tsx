@@ -12,23 +12,22 @@ vi.mock('../../utils/fileUtils', () => ({
   downloadTextFile: vi.fn(),
 }))
 
-// Mock clipboard API
-const mockWriteText = vi.fn().mockResolvedValue(undefined)
-Object.defineProperty(navigator, 'clipboard', {
-  value: {
-    writeText: mockWriteText,
-  },
-  writable: true,
-  configurable: true,
-})
-
 describe('OutputSection', () => {
   const mockOnReset = vi.fn()
   const mockTranscript = 'This is a test transcript.'
+  let mockWriteText: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockWriteText.mockClear()
+    // Mock clipboard API before each test
+    mockWriteText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: mockWriteText,
+      },
+      writable: true,
+      configurable: true,
+    })
   })
 
   it('should render transcript text', () => {
@@ -88,6 +87,9 @@ describe('OutputSection', () => {
 
     const copyButton = screen.getByText(/copy to clipboard/i)
     await user.click(copyButton)
+
+    // Wait for async clipboard operation
+    await new Promise(resolve => setTimeout(resolve, 0))
 
     expect(mockWriteText).toHaveBeenCalledWith(mockTranscript)
   })
