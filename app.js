@@ -48,30 +48,11 @@ const copyBtn = document.getElementById('copyBtn');
 const resetBtn = document.getElementById('resetBtn');
 const errorAlert = document.getElementById('errorAlert');
 const errorText = document.getElementById('errorText');
-const apiKeyContainer = document.getElementById('apiKeyContainer');
-const apiKeyInput = document.getElementById('apiKeyInput');
 
 // State Management
 let currentState = STATE.IDLE;
 let selectedFile = null;
 let currentTranscript = null;
-
-// Load API key from localStorage
-const savedApiKey = localStorage.getItem('gemini_api_key');
-if (savedApiKey) {
-    apiKeyInput.value = savedApiKey;
-} else {
-    // Show API key input if not saved
-    apiKeyContainer.style.display = 'block';
-}
-
-// Save API key to localStorage when changed
-apiKeyInput.addEventListener('input', () => {
-    localStorage.setItem('gemini_api_key', apiKeyInput.value);
-    if (apiKeyInput.value.trim()) {
-        apiKeyContainer.style.display = 'none';
-    }
-});
 
 // File Input Handling
 dropZone.addEventListener('click', () => {
@@ -123,14 +104,6 @@ function handleFileSelect(file) {
     }
 
     selectedFile = file;
-    
-    // Check if API key is available
-    const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) {
-        setState(STATE.ERROR, 'Please enter your Google Gemini API key first.');
-        apiKeyContainer.style.display = 'block';
-        return;
-    }
 
     // Auto-start transcription
     startTranscription();
@@ -183,12 +156,6 @@ function setState(newState, errorMessage = null) {
 async function startTranscription() {
     if (!selectedFile) return;
 
-    const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) {
-        setState(STATE.ERROR, 'API key is required.');
-        return;
-    }
-
     setState(STATE.PROCESSING);
     updateStatus('Uploading...');
 
@@ -196,7 +163,7 @@ async function startTranscription() {
         const formData = new FormData();
         formData.append('audio', selectedFile);
         formData.append('chunk_length', '12'); // Default chunk length
-        formData.append('api_key', apiKey);
+        // API key is now handled by backend using environment variable
 
         const response = await fetch(`${API_BASE_URL}/transcribe`, {
             method: 'POST',

@@ -58,10 +58,12 @@ def transcribe():
                 'error': f'File type not allowed. Allowed types: {allowed_types}'
             }), 400
 
-        # Get API key
-        api_key = request.form.get('api_key')
+        # Get API key from environment variable (set in Render)
+        api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            return jsonify({'error': 'API key not provided'}), 400
+            return jsonify({
+                'error': 'GEMINI_API_KEY not configured. Please set it in Render environment variables.'
+            }), 500
 
         # Get chunk length
         chunk_length = int(request.form.get('chunk_length', 12))
