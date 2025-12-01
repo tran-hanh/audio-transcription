@@ -1,7 +1,28 @@
-// Configuration - Update this with your backend API URL
-// For local development: 'http://localhost:5000'
-// For production: Replace with your deployed backend URL
-const API_BASE_URL = 'http://localhost:5001';
+// Configuration - API Base URL
+// Automatically detects environment and uses appropriate backend URL
+function getApiBaseUrl() {
+    // Check if we're running on GitHub Pages (production)
+    const hostname = window.location.hostname;
+    const isProduction = hostname.includes('github.io') || hostname.includes('github.com');
+    
+    // Check if we're running locally
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    
+    if (isLocal) {
+        // Local development - use localhost backend
+        return 'http://localhost:5001';
+    } else if (isProduction) {
+        // Production on GitHub Pages - use your deployed backend URL
+        // TODO: Replace this with your actual deployed backend URL
+        // Example: 'https://audio-transcription-api.onrender.com'
+        return 'https://your-backend-url.onrender.com';
+    } else {
+        // Fallback for other environments
+        return 'https://your-backend-url.onrender.com';
+    }
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Application States
 const STATE = {
