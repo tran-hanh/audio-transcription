@@ -73,8 +73,28 @@ describe('downloadTextFile', () => {
   let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    // Mock URL.createObjectURL
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
+    // Mock URL.createObjectURL - jsdom doesn't have this by default
+    const createObjectURLMock = vi.fn().mockReturnValue('blob:mock-url')
+    const revokeObjectURLMock = vi.fn()
+    
+    // Add to URL if it doesn't exist
+    if (!URL.createObjectURL) {
+      Object.defineProperty(URL, 'createObjectURL', {
+        value: createObjectURLMock,
+        writable: true,
+        configurable: true,
+      })
+    } else {
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
+    }
+    
+    if (!URL.revokeObjectURL) {
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        value: revokeObjectURLMock,
+        writable: true,
+        configurable: true,
+      })
+    }
     revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
 
     // Mock anchor element

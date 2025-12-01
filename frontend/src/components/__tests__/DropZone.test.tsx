@@ -23,29 +23,34 @@ describe('DropZone', () => {
   })
 
   it('should have hidden file input', () => {
-    render(<DropZone onFileSelect={mockOnFileSelect} />)
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
 
-    const fileInput = screen.getByLabelText(/drag & drop/i).querySelector('input[type="file"]')
-    expect(fileInput).toBeInTheDocument()
+    const fileInput = container.querySelector('input[type="file"]')
+    expect(fileInput).toBeTruthy()
     expect(fileInput).toHaveAttribute('accept', 'audio/*')
   })
 
   it('should call onFileSelect when file is selected', async () => {
-    const user = userEvent.setup()
-    render(<DropZone onFileSelect={mockOnFileSelect} />)
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
 
     const file = new File(['audio content'], 'test.mp3', { type: 'audio/mpeg' })
-    const fileInput = screen.getByLabelText(/drag & drop/i).querySelector('input[type="file"]') as HTMLInputElement
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    expect(fileInput).toBeTruthy()
 
-    await user.upload(fileInput, file)
+    // Simulate file selection
+    Object.defineProperty(fileInput, 'files', {
+      value: [file],
+      writable: false,
+    })
+    fireEvent.change(fileInput)
 
     expect(mockOnFileSelect).toHaveBeenCalledWith(file)
   })
 
   it('should handle drag and drop', () => {
-    render(<DropZone onFileSelect={mockOnFileSelect} />)
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
 
-    const dropZone = screen.getByLabelText(/drag & drop/i)
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
     const file = new File(['audio content'], 'test.mp3', { type: 'audio/mpeg' })
 
     fireEvent.dragOver(dropZone)
@@ -62,9 +67,9 @@ describe('DropZone', () => {
   })
 
   it('should not handle drag events when disabled', () => {
-    render(<DropZone onFileSelect={mockOnFileSelect} disabled={true} />)
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} disabled={true} />)
 
-    const dropZone = screen.getByLabelText(/drag & drop/i)
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
     const file = new File(['audio content'], 'test.mp3', { type: 'audio/mpeg' })
 
     fireEvent.dragOver(dropZone)
@@ -80,9 +85,10 @@ describe('DropZone', () => {
   })
 
   it('should disable file input when disabled prop is true', () => {
-    render(<DropZone onFileSelect={mockOnFileSelect} disabled={true} />)
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} disabled={true} />)
 
-    const fileInput = screen.getByLabelText(/drag & drop/i).querySelector('input[type="file"]') as HTMLInputElement
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    expect(fileInput).toBeTruthy()
     expect(fileInput).toBeDisabled()
   })
 })

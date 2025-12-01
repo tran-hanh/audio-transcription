@@ -13,10 +13,13 @@ vi.mock('../../utils/fileUtils', () => ({
 }))
 
 // Mock clipboard API
-Object.assign(navigator, {
-  clipboard: {
-    writeText: vi.fn().mockResolvedValue(undefined),
+const mockWriteText = vi.fn().mockResolvedValue(undefined)
+Object.defineProperty(navigator, 'clipboard', {
+  value: {
+    writeText: mockWriteText,
   },
+  writable: true,
+  configurable: true,
 })
 
 describe('OutputSection', () => {
@@ -25,6 +28,7 @@ describe('OutputSection', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockWriteText.mockClear()
   })
 
   it('should render transcript text', () => {
@@ -85,7 +89,7 @@ describe('OutputSection', () => {
     const copyButton = screen.getByText(/copy to clipboard/i)
     await user.click(copyButton)
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(mockTranscript)
+    expect(mockWriteText).toHaveBeenCalledWith(mockTranscript)
   })
 
   it('should call onReset when reset button is clicked', async () => {
