@@ -36,6 +36,14 @@ const STATE = {
 const dropZoneSection = document.getElementById('dropZoneSection');
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
+
+// Verify elements exist
+if (!dropZone) {
+    console.error('dropZone element not found!');
+}
+if (!fileInput) {
+    console.error('fileInput element not found!');
+}
 const processingSection = document.getElementById('processingSection');
 const fileNameDisplay = document.getElementById('fileNameDisplay');
 const progressBar = document.getElementById('progressBar');
@@ -55,39 +63,50 @@ let selectedFile = null;
 let currentTranscript = null;
 
 // File Input Handling
-dropZone.addEventListener('click', () => {
-    if (currentState === STATE.IDLE) {
-        fileInput.click();
-    }
-});
-
-dropZone.addEventListener('dragover', (e) => {
-    if (currentState === STATE.IDLE) {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    }
-});
-
-dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-});
-
-dropZone.addEventListener('drop', (e) => {
-    if (currentState === STATE.IDLE) {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            handleFileSelect(files[0]);
+if (dropZone && fileInput) {
+    // Click handler for drop zone - opens file picker
+    dropZone.addEventListener('click', (e) => {
+        console.log('Drop zone clicked, current state:', currentState);
+        if (currentState === STATE.IDLE) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Triggering file input click');
+            fileInput.click();
         }
-    }
-});
+    });
 
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFileSelect(e.target.files[0]);
-    }
-});
+    // Drag and drop handlers
+    dropZone.addEventListener('dragover', (e) => {
+        if (currentState === STATE.IDLE) {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        if (currentState === STATE.IDLE) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        }
+    });
+
+    // File input change handler
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+} else {
+    console.error('Cannot set up file input handlers - elements not found');
+}
 
 function handleFileSelect(file) {
     // Validate file type
