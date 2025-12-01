@@ -37,7 +37,7 @@ describe('OutputSection', () => {
         configurable: true,
         enumerable: true,
       })
-    } catch (e) {
+    } catch {
       // If it already exists, try to update it
       // @ts-expect-error - May not be writable
       navigator.clipboard = {
