@@ -12,6 +12,7 @@
 *.txt
 !README.md
 !requirements.txt
+!requirements-test.txt
 
 # Python
 __pycache__/
