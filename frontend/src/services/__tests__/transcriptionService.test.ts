@@ -11,7 +11,7 @@ describe('TranscriptionService', () => {
 
   beforeEach(() => {
     service = new TranscriptionService(mockBaseUrl)
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn() as typeof fetch
   })
 
   afterEach(() => {
@@ -20,18 +20,18 @@ describe('TranscriptionService', () => {
 
   describe('healthCheck', () => {
     it('should return true when health endpoint responds with OK', async () => {
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,
         status: 200,
       })
 
       const result = await service.healthCheck()
       expect(result).toBe(true)
-      expect(global.fetch).toHaveBeenCalledWith(`${mockBaseUrl}/health`)
+      expect(globalThis.fetch).toHaveBeenCalledWith(`${mockBaseUrl}/health`)
     })
 
     it('should return false when health endpoint fails', async () => {
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: false,
         status: 500,
       })
@@ -41,7 +41,7 @@ describe('TranscriptionService', () => {
     })
 
     it('should return false when fetch throws an error', async () => {
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
         new Error('Network error')
       )
 
@@ -68,7 +68,7 @@ describe('TranscriptionService', () => {
         },
       }
 
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       try {
         await service.transcribe(mockFile, 12, vi.fn())
@@ -76,7 +76,7 @@ describe('TranscriptionService', () => {
         // Expected to fail due to incomplete mock
       }
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${mockBaseUrl}/transcribe`,
         expect.objectContaining({
           method: 'POST',
@@ -92,7 +92,7 @@ describe('TranscriptionService', () => {
         json: vi.fn().mockResolvedValueOnce({ error: 'Server error' }),
       }
 
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       await expect(
         service.transcribe(mockFile, 12, vi.fn())
@@ -118,7 +118,7 @@ describe('TranscriptionService', () => {
           }),
       }
 
-      vi.spyOn(global, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
+      vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
 
       const mockResponse = {
         ok: true,
@@ -127,7 +127,7 @@ describe('TranscriptionService', () => {
         },
       }
 
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       try {
         await service.transcribe(mockFile, 12, progressCallback)
@@ -158,7 +158,7 @@ describe('TranscriptionService', () => {
           }),
       }
 
-      vi.spyOn(global, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
+      vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
 
       const mockResponse = {
         ok: true,
@@ -167,7 +167,7 @@ describe('TranscriptionService', () => {
         },
       }
 
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       try {
         const result = await service.transcribe(mockFile, 12, vi.fn())
@@ -183,7 +183,7 @@ describe('TranscriptionService', () => {
         body: null,
       }
 
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
       await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
         'No response body'

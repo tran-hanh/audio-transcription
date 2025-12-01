@@ -2,7 +2,7 @@
  * Tests for API configuration
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 describe('API Configuration', () => {
   const originalLocation = window.location
@@ -20,7 +20,7 @@ describe('API Configuration', () => {
     Object.defineProperty(window, 'location', {
       value: {
         hostname: 'localhost',
-      },
+      } as Location,
       writable: true,
     })
 
@@ -33,7 +33,7 @@ describe('API Configuration', () => {
     Object.defineProperty(window, 'location', {
       value: {
         hostname: '127.0.0.1',
-      },
+      } as Location,
       writable: true,
     })
 
@@ -45,7 +45,7 @@ describe('API Configuration', () => {
     Object.defineProperty(window, 'location', {
       value: {
         hostname: 'username.github.io',
-      },
+      } as Location,
       writable: true,
     })
 

@@ -70,12 +70,11 @@ describe('downloadTextFile', () => {
   let removeChildSpy: ReturnType<typeof vi.spyOn>
   let clickSpy: ReturnType<typeof vi.fn>
   let mockAnchor: HTMLAnchorElement
-  let createObjectURLSpy: ReturnType<typeof vi.spyOn>
   let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     // Mock URL.createObjectURL
-    createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url')
     revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
 
     // Mock anchor element
@@ -86,9 +85,9 @@ describe('downloadTextFile', () => {
       click: clickSpy,
     } as unknown as HTMLAnchorElement
 
-    createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor)
-    appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockAnchor)
-    removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockAnchor)
+    createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor) as unknown as ReturnType<typeof vi.spyOn>
+    appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockAnchor) as unknown as ReturnType<typeof vi.spyOn>
+    removeChildSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockAnchor) as unknown as ReturnType<typeof vi.spyOn>
   })
 
   afterEach(() => {
@@ -108,7 +107,7 @@ describe('downloadTextFile', () => {
   })
 
   it('should create blob with correct content and type', () => {
-    const blobSpy = vi.spyOn(global, 'Blob')
+    const blobSpy = vi.spyOn(globalThis, 'Blob')
     downloadTextFile('test content', 'test.txt')
 
     expect(blobSpy).toHaveBeenCalledWith(['test content'], {

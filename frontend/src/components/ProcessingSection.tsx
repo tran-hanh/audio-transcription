@@ -3,8 +3,6 @@
  */
 
 import React from 'react';
-import { FileInfo } from '../types';
-import { formatFileSize } from '../utils/fileUtils';
 
 interface ProcessingSectionProps {
   fileName: string;
