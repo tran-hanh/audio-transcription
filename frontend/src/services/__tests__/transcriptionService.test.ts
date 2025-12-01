@@ -61,12 +61,12 @@ describe('TranscriptionService', () => {
         }),
       }
 
-      const mockResponse = {
+      const mockResponse: Response = {
         ok: true,
         body: {
           getReader: () => mockReader,
         },
-      }
+      } as unknown as Response
 
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
@@ -86,11 +86,11 @@ describe('TranscriptionService', () => {
     })
 
     it('should handle server errors', async () => {
-      const mockResponse = {
+      const mockResponse: Response = {
         ok: false,
         status: 500,
         json: vi.fn().mockResolvedValueOnce({ error: 'Server error' }),
-      }
+      } as unknown as Response
 
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
@@ -120,12 +120,12 @@ describe('TranscriptionService', () => {
 
       vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
 
-      const mockResponse = {
+      const mockResponse: Response = {
         ok: true,
         body: {
           getReader: () => mockReader,
         },
-      }
+      } as unknown as Response
 
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
@@ -160,12 +160,12 @@ describe('TranscriptionService', () => {
 
       vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
 
-      const mockResponse = {
+      const mockResponse: Response = {
         ok: true,
         body: {
           getReader: () => mockReader,
         },
-      }
+      } as unknown as Response
 
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
@@ -178,10 +178,10 @@ describe('TranscriptionService', () => {
     })
 
     it('should throw error when no response body', async () => {
-      const mockResponse = {
+      const mockResponse: Response = {
         ok: true,
         body: null,
-      }
+      } as unknown as Response
 
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
 
