@@ -76,7 +76,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (without cache)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Generate package-lock.json if missing
+        working-directory: frontend
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only
+          fi
+
+      - name: Setup Node.js (with cache)
         uses: actions/setup-node@v5
         with:
           node-version: '20'
@@ -85,12 +97,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm ci
 
       - name: Run type check
         working-directory: frontend
@@ -114,7 +121,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (without cache)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Generate package-lock.json if missing
+        working-directory: frontend
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only
+          fi
+
+      - name: Setup Node.js (with cache)
         uses: actions/setup-node@v5
         with:
           node-version: '20'
@@ -123,12 +142,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm ci
 
       - name: Build
         working-directory: frontend
