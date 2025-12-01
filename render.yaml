@@ -8,6 +8,8 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false  # Set this in Render dashboard
+      - key: PYTHON_VERSION
+        value: 3.12.7
     disk:
       name: audio-transcription-disk
       mountPath: /tmp
