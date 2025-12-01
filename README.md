@@ -4,6 +4,26 @@ A Python application for transcribing very long audio files (2-4 hours) using Go
 
 **Now available as a web app!** Upload audio files directly through your browser and download transcripts instantly.
 
+## Project Structure
+
+This project follows a clean monorepo structure:
+
+```
+audio_transcription/
+├── backend/          # Flask API server
+│   └── app.py
+├── src/              # Core transcription library
+│   └── transcribe.py
+├── frontend/         # Web application
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── tests/            # Test suite
+│   └── README.md     # Testing documentation
+└── .github/workflows/
+    └── ci-cd.yml     # CI/CD pipeline
+```
+
 ## Features
 
 - **Web Interface**: Beautiful, modern web app deployable to GitHub Pages
@@ -45,7 +65,7 @@ export GEMINI_API_KEY="your-api-key-here"
 
 **Option B: Pass as Command-Line Argument**
 ```bash
-python3 transcribe.py input.mp3 --api-key "your-api-key-here"
+python3 src/transcribe.py input.mp3 --api-key "your-api-key-here"
 ```
 
 ### 3. Get Your Google Gemini API Key
@@ -62,7 +82,7 @@ python3 transcribe.py input.mp3 --api-key "your-api-key-here"
 ### Basic Usage
 
 ```bash
-python3 transcribe.py input.mp3
+python3 src/transcribe.py input.mp3
 ```
 
 This will create `input_transcript.txt` in the same directory.
@@ -70,7 +90,7 @@ This will create `input_transcript.txt` in the same directory.
 ### Specify Output File
 
 ```bash
-python3 transcribe.py input.mp3 --output transcript.txt
+python3 src/transcribe.py input.mp3 --output transcript.txt
 ```
 
 ### Adjust Chunk Size
@@ -78,13 +98,13 @@ python3 transcribe.py input.mp3 --output transcript.txt
 Default chunk size is 12 minutes. To change it:
 
 ```bash
-python3 transcribe.py input.mp3 --chunk-length 15
+python3 src/transcribe.py input.mp3 --chunk-length 15
 ```
 
 ### Full Example
 
 ```bash
-python3 transcribe.py long_audio.mp3 --output final_transcript.txt --chunk-length 10
+python3 src/transcribe.py long_audio.mp3 --output final_transcript.txt --chunk-length 10
 ```
 
 ## How It Works
@@ -108,7 +128,7 @@ The script supports any format that `pydub` can handle, including:
 
 ## Configuration
 
-You can modify these constants in `transcribe.py`:
+You can modify these constants in `src/transcribe.py`:
 
 - `CHUNK_LENGTH_MINUTES`: Default chunk size (12 minutes)
 - `LANGUAGE`: Primary language for transcription (`"vi"` for Vietnamese)
@@ -142,10 +162,10 @@ The project includes a web interface that can be deployed to GitHub Pages with a
 1. **Enable GitHub Pages**:
    - Go to your repository Settings → Pages
    - Select "GitHub Actions" as the source
-   - The workflow in `.github/workflows/deploy.yml` will automatically deploy on push
+   - The workflow in `.github/workflows/ci-cd.yml` will automatically deploy on push
 
 2. **Update API URL**:
-   - Open `app.js`
+   - Open `frontend/src/config/api.ts`
    - Update `API_BASE_URL` with your backend API URL (after deploying backend)
 
 3. **Push to main branch**:
@@ -170,7 +190,7 @@ The project includes a web interface that can be deployed to GitHub Pages with a
      - **Name**: `audio-transcription-api`
      - **Environment**: `Python 3`
      - **Build Command**: `pip install -r requirements.txt`
-     - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
+     - **Start Command**: `gunicorn backend.app:app --bind 0.0.0.0:$PORT`
      - **Plan**: Free (or paid for better performance)
 
 3. **Set Environment Variables**:
@@ -182,7 +202,7 @@ The project includes a web interface that can be deployed to GitHub Pages with a
    - Copy the service URL (e.g., `https://audio-transcription-api.onrender.com`)
 
 5. **Update Frontend**:
-   - Update `API_BASE_URL` in `app.js` with your Render URL
+   - Update `API_BASE_URL` in `frontend/src/config/api.ts` with your Render URL
    - Commit and push to trigger GitHub Pages redeploy
 
 #### Option 2: Railway
@@ -196,7 +216,7 @@ The project includes a web interface that can be deployed to GitHub Pages with a
    - Add environment variable: `GEMINI_API_KEY`
    - Railway will auto-deploy
 
-4. **Get URL** and update `app.js` as above
+4. **Get URL** and update `frontend/src/config/api.ts` as above
 
 #### Option 3: Heroku
 
@@ -217,7 +237,7 @@ The project includes a web interface that can be deployed to GitHub Pages with a
    git push heroku main
    ```
 
-5. **Get URL** and update `app.js`
+5. **Get URL** and update `frontend/src/config/api.ts`
 
 ### Local Development
 
@@ -225,26 +245,50 @@ To test the web app locally:
 
 1. **Start the backend**:
    ```bash
-   python app.py
+   python backend/app.py
    ```
-   Backend will run on `http://localhost:5000`
+   Backend will run on `http://localhost:5001`
 
-2. **Update `app.js`**:
-   ```javascript
-   const API_BASE_URL = 'http://localhost:5000';
+2. **Update `frontend/src/config/api.ts`**:
+   ```typescript
+   export const API_BASE_URL = 'http://localhost:5001';
    ```
 
-3. **Open `index.html`** in your browser or use a local server:
+3. **Run the frontend development server**:
    ```bash
-   python -m http.server 8000
+   cd frontend
+   npm install
+   npm run dev
    ```
-   Then open `http://localhost:8000`
+   Opens automatically at `http://localhost:8000`
+
+### CI/CD Pipeline
+
+The project includes automated testing and deployment:
+
+- **Tests**: Run automatically on every push/PR
+- **Linting**: Code quality checks with pylint
+- **Deployment**: Automatic deployment to GitHub Pages after tests pass
+- **Coverage**: Test coverage reports generated automatically
+
+See `.github/workflows/ci-cd.yml` for the pipeline configuration.
+
+### Testing
+
+Run tests locally:
+```bash
+pip install -r requirements-test.txt
+pytest tests/ -v
+```
+
+See `tests/README.md` for detailed testing documentation.
 
 ### Important Notes
 
-- **API Key Security**: The API key is stored in browser localStorage and sent to the backend. For production, consider implementing user authentication or API key management.
-- **File Size Limits**: The backend has a 500MB file size limit. Adjust `MAX_FILE_SIZE` in `app.py` if needed.
-- **CORS**: The backend has CORS enabled for GitHub Pages. If deploying to a custom domain, update CORS settings in `app.py`.
+- **API Key Security**: The API key is stored server-side in Render environment variables (never exposed to frontend)
+- **File Size Limits**: The backend has a 25MB file size limit. Adjust `MAX_FILE_SIZE` in `backend/app.py` if needed
+- **CORS**: The backend has CORS enabled for GitHub Pages. If deploying to a custom domain, update CORS settings in `backend/app.py`
+- **Python Version**: Use Python 3.12 (3.13 has compatibility issues with pydub)
 
 ## License
 

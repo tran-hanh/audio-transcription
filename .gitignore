@@ -54,3 +54,7 @@ htmlcov/
 .hypothesis/
 .tox/
 
+# Build artifacts
+build/
+dist/
+*.egg-info/

@@ -8,8 +8,13 @@ import tempfile
 from io import BytesIO
 from unittest.mock import patch, MagicMock
 
+import sys
+from pathlib import Path
+
 import pytest
 
+# Add backend directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'backend'))
 from app import app, allowed_file, send_progress, MAX_FILE_SIZE
 
 
