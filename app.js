@@ -15,10 +15,10 @@ function getApiBaseUrl() {
         // Production on GitHub Pages - use your deployed backend URL
         // TODO: Replace this with your actual deployed backend URL
         // Example: 'https://audio-transcription-api.onrender.com'
-        return 'https://your-backend-url.onrender.com';
+        return 'https://audio-transcription-90eh.onrender.com';
     } else {
         // Fallback for other environments
-        return 'https://your-backend-url.onrender.com';
+        return 'https://audio-transcription-90eh.onrender.com';
     }
 }
 
