@@ -5,6 +5,7 @@ Transcribes large audio files (2-4 hours) by chunking and using Google Gemini AP
 Optimized for Vietnamese with English words.
 """
 
+import argparse
 import os
 import sys
 import tempfile
@@ -266,8 +267,6 @@ def transcribe_audio(
 
 def main():
     """Command-line interface for the transcription script."""
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Transcribe long audio files using Google Gemini API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
