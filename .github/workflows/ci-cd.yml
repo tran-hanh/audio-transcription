@@ -149,7 +149,8 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # VITE_BASE_PATH defaults to './' (relative) which works for all GitHub Pages deployments
+          # Override with absolute path if needed: VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
