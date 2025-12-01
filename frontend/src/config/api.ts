@@ -21,3 +21,4 @@ export const API_ENDPOINTS = {
   TRANSCRIBE: '/transcribe',
 } as const;
 
+

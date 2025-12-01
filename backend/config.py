@@ -48,3 +48,4 @@ class Config:
             debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
         )
 
+

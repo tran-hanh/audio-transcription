@@ -40,3 +40,4 @@ export const ProcessingSection: React.FC<ProcessingSectionProps> = ({
   );
 };
 
+

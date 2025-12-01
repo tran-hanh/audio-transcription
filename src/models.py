@@ -46,3 +46,4 @@ class TranscriptionResult:
     success: bool = True
     error: Optional[str] = None
 
+
