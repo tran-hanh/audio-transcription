@@ -11,7 +11,7 @@ function getApiBaseUrl(): string {
   }
   
   // Production - update with your backend URL
-  return 'https://your-backend-url.onrender.com';
+  return 'https://audio-transcription-90eh.onrender.com';
 }
 
 export const API_BASE_URL = getApiBaseUrl();
