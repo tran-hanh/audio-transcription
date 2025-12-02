@@ -24,6 +24,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileSelect, disabled = fal
       const file = e.target.files?.[0];
       if (file) {
         onFileSelect(file);
+        // Reset the input value so the same file can be selected again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     },
     [onFileSelect]

@@ -2,7 +2,7 @@
  * Main application component
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AppState } from './types';
 import { TranscriptionService } from './services/transcriptionService';
 import { useTranscription } from './hooks/useTranscription';
@@ -27,12 +27,22 @@ export const App: React.FC = () => {
     reset,
   } = useTranscription(transcriptionService);
 
+  // Store startTranscription in a ref to avoid dependency issues
+  const startTranscriptionRef = useRef(startTranscription);
+  useEffect(() => {
+    startTranscriptionRef.current = startTranscription;
+  }, [startTranscription]);
+
   // Auto-start transcription when file is selected
   useEffect(() => {
     if (selectedFile && state === AppState.IDLE) {
-      startTranscription(12); // Default chunk length
+      // Use a small timeout to ensure state updates are complete
+      const timer = setTimeout(() => {
+        startTranscriptionRef.current(12); // Default chunk length
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [selectedFile, state, startTranscription]);
+  }, [selectedFile, state]);
 
   return (
     <div className="main-container">
