@@ -7,8 +7,9 @@ Handles file uploads and transcription requests
 import logging
 import os
 
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from backend.config import Config
 from backend.routes import create_routes
@@ -45,8 +46,17 @@ def create_app(config: Config = None) -> Flask:
             raise
     
     # Set Flask's MAX_CONTENT_LENGTH to allow large file uploads
-    # This must be at least as large as config.max_file_size
-    app.config['MAX_CONTENT_LENGTH'] = config.max_file_size
+    # Set it significantly higher than max_file_size to allow validation in service layer
+    # This gives us protection against extremely large files while allowing service-level validation
+    # Use 2x max_file_size to ensure files can pass through for validation
+    app.config['MAX_CONTENT_LENGTH'] = config.max_file_size * 2
+    
+    # Register error handler for file size limit
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(e):
+        """Handle 413 Request Entity Too Large errors"""
+        max_size_mb = config.max_file_size / (1024 * 1024)
+        return jsonify({'error': f'File too large. Maximum size: {max_size_mb:.0f} MB'}), 413
     
     # Initialize services
     validator = FileValidator(

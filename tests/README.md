@@ -67,7 +67,7 @@ Frontend tests are currently manual. See `tests/test_frontend.js` for test cases
    - [ ] Drag and drop audio file works
    - [ ] File picker only shows audio files
    - [ ] Invalid file type shows error
-   - [ ] File too large (250MB+) shows error
+   - [ ] File too large (25MB+) shows error
    - [ ] Valid file starts transcription automatically
 
 2. **Transcription Process**
