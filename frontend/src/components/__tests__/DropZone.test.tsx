@@ -18,7 +18,7 @@ describe('DropZone', () => {
 
     expect(screen.getByText('Drag & Drop your audio file here')).toBeInTheDocument()
     expect(screen.getByText('or click to browse files')).toBeInTheDocument()
-    expect(screen.getByText('Supports MP3, WAV, M4A (Max 25MB)')).toBeInTheDocument()
+    expect(screen.getByText('Supports MP3, WAV, M4A (Max 250MB)')).toBeInTheDocument()
   })
 
   it('should have hidden file input', () => {

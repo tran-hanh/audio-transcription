@@ -12,7 +12,7 @@ class Config:
     """Application configuration"""
     # API Configuration
     gemini_api_key: str
-    max_file_size: int = 25 * 1024 * 1024  # 25 MB
+    max_file_size: int = 250 * 1024 * 1024  # 250 MB
     allowed_extensions: Set[str] = None
     default_chunk_length: int = 12
     min_chunk_length: int = 1
@@ -42,7 +42,7 @@ class Config:
         
         return cls(
             gemini_api_key=api_key,
-            max_file_size=int(os.getenv('MAX_FILE_SIZE', 25 * 1024 * 1024)),
+            max_file_size=int(os.getenv('MAX_FILE_SIZE', 250 * 1024 * 1024)),
             default_chunk_length=int(os.getenv('DEFAULT_CHUNK_LENGTH', 12)),
             port=int(os.getenv('PORT', 5001)),
             debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true'

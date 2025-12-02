@@ -46,18 +46,30 @@ describe('validateAudioFile', () => {
     expect(result.error).toContain('valid audio file')
   })
 
-  it('should reject files larger than 25MB', () => {
-    const largeFile = new File(['x'.repeat(26 * 1024 * 1024)], 'test.mp3', {
+  it('should reject files larger than 250MB', () => {
+    // Create a small file but mock the size property to test validation
+    const largeFile = new File(['test'], 'test.mp3', {
       type: 'audio/mpeg',
+    })
+    // Mock the size property to be larger than 250MB
+    Object.defineProperty(largeFile, 'size', {
+      value: 251 * 1024 * 1024,
+      writable: false,
     })
     const result = validateAudioFile(largeFile)
     expect(result.valid).toBe(false)
     expect(result.error).toContain('too large')
   })
 
-  it('should accept files exactly at 25MB limit', () => {
-    const fileAtLimit = new File(['x'.repeat(25 * 1024 * 1024)], 'test.mp3', {
+  it('should accept files exactly at 250MB limit', () => {
+    // Create a small file but mock the size property to test validation
+    const fileAtLimit = new File(['test'], 'test.mp3', {
       type: 'audio/mpeg',
+    })
+    // Mock the size property to be exactly 250MB
+    Object.defineProperty(fileAtLimit, 'size', {
+      value: 250 * 1024 * 1024,
+      writable: false,
     })
     const result = validateAudioFile(fileAtLimit)
     expect(result.valid).toBe(true)

@@ -12,7 +12,7 @@ import { AppState } from '../../types'
 vi.mock('../../services/transcriptionService')
 vi.mock('../../utils/fileUtils', () => ({
   validateAudioFile: vi.fn((file) => {
-    if (file.type.startsWith('audio/') && file.size <= 25 * 1024 * 1024) {
+    if (file.type.startsWith('audio/') && file.size <= 250 * 1024 * 1024) {
       return { valid: true }
     }
     return { valid: false, error: 'Invalid file' }

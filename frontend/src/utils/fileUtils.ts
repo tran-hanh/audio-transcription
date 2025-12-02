@@ -16,10 +16,10 @@ export function validateAudioFile(file: File): { valid: boolean; error?: string 
     return { valid: false, error: 'Please select a valid audio file.' };
   }
 
-  // Validate file size (25MB max)
-  const maxSize = 25 * 1024 * 1024; // 25MB
+  // Validate file size (250MB max)
+  const maxSize = 250 * 1024 * 1024; // 250MB
   if (file.size > maxSize) {
-    return { valid: false, error: 'File too large. Maximum size is 25MB.' };
+    return { valid: false, error: 'File too large. Maximum size is 250MB.' };
   }
 
   return { valid: true };

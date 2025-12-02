@@ -44,6 +44,10 @@ def create_app(config: Config = None) -> Flask:
             logger.error(f"Configuration error: {e}")
             raise
     
+    # Set Flask's MAX_CONTENT_LENGTH to allow large file uploads
+    # This must be at least as large as config.max_file_size
+    app.config['MAX_CONTENT_LENGTH'] = config.max_file_size
+    
     # Initialize services
     validator = FileValidator(
         allowed_extensions=config.allowed_extensions,
