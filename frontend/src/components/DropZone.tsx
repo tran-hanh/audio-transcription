@@ -80,7 +80,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileSelect, disabled = fal
       </svg>
       <p className="drop-zone-primary">Drag & Drop your audio file here</p>
       <p className="drop-zone-secondary">or click to browse files</p>
-      <p className="drop-zone-formats">Supports MP3, WAV, M4A (Max 250MB)</p>
+      <p className="drop-zone-formats">Supports MP3, WAV, M4A (Max 1GB)</p>
     </label>
   );
 };

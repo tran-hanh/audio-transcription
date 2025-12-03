@@ -286,7 +286,7 @@ See `tests/README.md` for detailed testing documentation.
 ### Important Notes
 
 - **API Key Security**: The API key is stored server-side in Render environment variables (never exposed to frontend)
-- **File Size Limits**: The backend has a 250MB file size limit. Adjust `MAX_FILE_SIZE` environment variable if needed
+- **File Size Limits**: The backend has a 1GB file size limit. Adjust `MAX_FILE_SIZE` environment variable if needed
 - **CORS**: The backend has CORS enabled for GitHub Pages. If deploying to a custom domain, update CORS settings in `backend/app.py`
 - **Python Version**: Use Python 3.12 (3.13 has compatibility issues with pydub)
 

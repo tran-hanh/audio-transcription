@@ -98,7 +98,8 @@ class TranscriptionService:
             # Send heartbeat messages while transcription is running
             import time
             last_heartbeat = time.time()
-            heartbeat_interval = 20  # Send heartbeat every 20 seconds to prevent timeout
+            heartbeat_interval = 10  # Send heartbeat every 10 seconds to prevent timeout
+            check_interval = 0.5  # Check every 500ms
             
             while transcription_thread.is_alive():
                 # Check for errors
@@ -108,14 +109,14 @@ class TranscriptionService:
                 except queue.Empty:
                     pass
                 
-                # Send heartbeat to keep connection alive
+                # Send heartbeat to keep connection alive - this is critical to prevent Gunicorn timeout
                 current_time = time.time()
                 if current_time - last_heartbeat >= heartbeat_interval:
                     yield self.send_progress(50, 'Transcription in progress... This may take several minutes. Please keep this page open.')
                     last_heartbeat = current_time
                 
                 # Small sleep to avoid busy waiting
-                time.sleep(0.5)  # Check more frequently
+                time.sleep(check_interval)
             
             # Get the result
             try:
