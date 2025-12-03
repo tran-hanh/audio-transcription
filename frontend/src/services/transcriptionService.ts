@@ -42,7 +42,6 @@ export class TranscriptionService {
     let transcript: string | undefined = undefined;
     let hasError = false;
     let lastDataTime = Date.now();
-    const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes timeout
     const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes without data = timeout
 
     // eslint-disable-next-line no-constant-condition
