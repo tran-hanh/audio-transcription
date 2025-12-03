@@ -39,12 +39,25 @@ export class TranscriptionService {
 
     const decoder = new TextDecoder();
     let buffer = '';
-    let transcript = '';
+    let transcript: string | undefined = undefined;
+    let hasError = false;
+    let lastDataTime = Date.now();
+    const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes timeout
+    const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes without data = timeout
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
+      // Check for timeout
+      const now = Date.now();
+      if (now - lastDataTime > HEARTBEAT_TIMEOUT_MS) {
+        throw new Error('Connection timeout. The transcription is taking longer than expected. Please try again.');
+      }
+
       const { done, value } = await reader.read();
       if (done) break;
+
+      // Update last data time
+      lastDataTime = Date.now();
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
@@ -55,20 +68,29 @@ export class TranscriptionService {
           try {
             const data: TranscriptionResponse = JSON.parse(line.slice(6));
             
+            // Update last data time when we receive any data
+            lastDataTime = Date.now();
+            
             if (data.progress !== undefined && data.message) {
               onProgress({ progress: data.progress, message: data.message });
             }
             
-            if (data.transcript) {
+            if (data.transcript !== undefined) {
               transcript = data.transcript;
             }
             
             if (data.error) {
+              hasError = true;
               throw new Error(data.error);
             }
           } catch (e) {
             // Ignore JSON parse errors for incomplete chunks
-            if (e instanceof Error && !e.message.includes('JSON')) {
+            if (e instanceof Error) {
+              if (e.message.includes('JSON')) {
+                // Continue parsing other lines
+                continue;
+              }
+              // Re-throw actual errors
               throw e;
             }
           }
@@ -76,8 +98,15 @@ export class TranscriptionService {
       }
     }
 
-    if (!transcript) {
-      throw new Error('No transcript received from server');
+    // If we got an error, it should have been thrown above
+    if (hasError) {
+      throw new Error('Transcription failed');
+    }
+
+    // Check if we received a transcript (even if empty, we should have received something)
+    // The transcript might be empty if the audio had no speech
+    if (transcript === undefined || transcript === null) {
+      throw new Error('No transcript received from server. The transcription may have failed.');
     }
 
     return transcript;

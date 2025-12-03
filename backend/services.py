@@ -73,19 +73,74 @@ class TranscriptionService:
             yield self.send_progress(5, 'File uploaded, starting transcription...')
             yield self.send_progress(10, 'Processing audio chunks...')
             
-            # Transcribe audio
-            output_path = transcribe_audio(
-                input_path=file_path,
-                output_path=temp_output_path,
-                api_key=self.config.gemini_api_key,
-                chunk_length_minutes=chunk_length
-            )
+            # Transcribe audio in a separate thread to allow progress updates
+            import threading
+            import queue
+            transcription_result = queue.Queue()
+            transcription_error = queue.Queue()
+            
+            def run_transcription():
+                try:
+                    output_path = transcribe_audio(
+                        input_path=file_path,
+                        output_path=temp_output_path,
+                        api_key=self.config.gemini_api_key,
+                        chunk_length_minutes=chunk_length
+                    )
+                    transcription_result.put(output_path)
+                except Exception as e:
+                    transcription_error.put(e)
+            
+            # Start transcription in background thread
+            transcription_thread = threading.Thread(target=run_transcription, daemon=True)
+            transcription_thread.start()
+            
+            # Send heartbeat messages while transcription is running
+            import time
+            last_heartbeat = time.time()
+            heartbeat_interval = 20  # Send heartbeat every 20 seconds to prevent timeout
+            
+            while transcription_thread.is_alive():
+                # Check for errors
+                try:
+                    error = transcription_error.get_nowait()
+                    raise error
+                except queue.Empty:
+                    pass
+                
+                # Send heartbeat to keep connection alive
+                current_time = time.time()
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    yield self.send_progress(50, 'Transcription in progress... This may take several minutes. Please keep this page open.')
+                    last_heartbeat = current_time
+                
+                # Small sleep to avoid busy waiting
+                time.sleep(0.5)  # Check more frequently
+            
+            # Get the result
+            try:
+                output_path = transcription_result.get(timeout=1)
+            except queue.Empty:
+                # Check for errors
+                try:
+                    error = transcription_error.get_nowait()
+                    raise error
+                except queue.Empty:
+                    raise RuntimeError("Transcription thread completed but no result was returned")
             
             yield self.send_progress(90, 'Reading transcript...')
             
             # Read transcript
+            if not os.path.exists(output_path):
+                raise FileNotFoundError(f"Transcript file not found: {output_path}")
+            
             with open(output_path, 'r', encoding='utf-8') as f:
                 transcript = f.read()
+            
+            # Validate transcript is not empty
+            if not transcript or not transcript.strip():
+                logger.warning("Transcript file is empty")
+                transcript = "[No transcript generated. The audio file may be empty or contain no speech.]"
             
             # Send final result
             yield self.send_progress(100, 'Transcription complete!')
