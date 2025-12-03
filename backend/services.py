@@ -84,11 +84,19 @@ class TranscriptionService:
             yield self.send_progress(10, 'Processing audio chunks...')
             
             # Transcribe audio with progress callback
-            import threading
-            import queue
-            transcription_result = queue.Queue()
-            transcription_error = queue.Queue()
-            progress_queue = queue.Queue()
+            # Use gevent-compatible queue if available, otherwise use standard queue
+            try:
+                from gevent import queue as gevent_queue
+                transcription_result = gevent_queue.Queue()
+                transcription_error = gevent_queue.Queue()
+                progress_queue = gevent_queue.Queue()
+                QUEUE_EMPTY = gevent_queue.Empty
+            except ImportError:
+                import queue
+                transcription_result = queue.Queue()
+                transcription_error = queue.Queue()
+                progress_queue = queue.Queue()
+                QUEUE_EMPTY = queue.Empty
             
             def progress_callback(progress: int, message: str):
                 """Callback function to report transcription progress"""
@@ -107,20 +115,28 @@ class TranscriptionService:
                 except Exception as e:
                     transcription_error.put(e)
             
-            # Start transcription in background thread
-            transcription_thread = threading.Thread(target=run_transcription, daemon=True)
-            transcription_thread.start()
+            # Start transcription in background using gevent if available
+            try:
+                import gevent
+                transcription_greenlet = gevent.spawn(run_transcription)
+                transcription_alive = lambda: not transcription_greenlet.ready()
+            except ImportError:
+                # Fallback to threading if gevent not available
+                import threading
+                transcription_thread = threading.Thread(target=run_transcription, daemon=True)
+                transcription_thread.start()
+                transcription_alive = lambda: transcription_thread.is_alive()
             
             # Process progress updates and send them to client
             last_progress_time = time.time()
-            heartbeat_interval = 15  # Send heartbeat if no progress for 15 seconds
+            heartbeat_interval = 10  # Send heartbeat every 10 seconds to keep connection alive
             
-            while transcription_thread.is_alive():
+            while transcription_alive():
                 # Check for errors
                 try:
                     error = transcription_error.get_nowait()
                     raise error
-                except queue.Empty:
+                except QUEUE_EMPTY:
                     pass
                 
                 # Check for progress updates (non-blocking)
@@ -129,36 +145,36 @@ class TranscriptionService:
                         progress, message = progress_queue.get_nowait()
                         yield self.send_progress(progress, message)
                         last_progress_time = time.time()
-                except queue.Empty:
+                except QUEUE_EMPTY:
                     pass
                 
-                # Send heartbeat if no progress for a while
+                # Send heartbeat frequently to keep connection alive and prevent timeout
                 current_time = time.time()
                 if current_time - last_progress_time >= heartbeat_interval:
                     yield self.send_progress(50, 'Transcription in progress... This may take several minutes. Please keep this page open.')
                     last_progress_time = current_time
                 
                 # Small sleep to avoid busy waiting (use gevent.sleep for gevent workers)
-                SLEEP(0.1)  # Check frequently for progress updates
+                SLEEP(0.5)  # Check every 500ms for progress updates
             
             # Process any remaining progress updates
             try:
                 while True:
                     progress, message = progress_queue.get_nowait()
                     yield self.send_progress(progress, message)
-            except queue.Empty:
+            except QUEUE_EMPTY:
                 pass
             
             # Get the result
             try:
                 output_path = transcription_result.get(timeout=1)
-            except queue.Empty:
+            except QUEUE_EMPTY:
                 # Check for errors
                 try:
                     error = transcription_error.get_nowait()
                     raise error
-                except queue.Empty:
-                    raise RuntimeError("Transcription thread completed but no result was returned")
+                except QUEUE_EMPTY:
+                    raise RuntimeError("Transcription completed but no result was returned")
             
             yield self.send_progress(95, 'Reading transcript...')
             
