@@ -24,7 +24,7 @@ LANGUAGE = "vi"  # Vietnamese - primary language for better accuracy
 OUTPUT_ENCODING = "utf-8"
 
 
-def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS) -> Tuple[List[str], str]:
+def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS, progress_callback=None) -> Tuple[List[str], str]:
     """
     Split a large audio file into smaller chunks.
 
@@ -54,6 +54,9 @@ def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS) -> Tupl
     chunk_msg = (f"Splitting into approximately {num_chunks} chunks of "
                  f"~{CHUNK_LENGTH_MINUTES} minutes each...")
     print(chunk_msg)
+    
+    if progress_callback:
+        progress_callback(15, f"Analyzing audio file ({total_minutes:.1f} minutes total)...")
 
     # Split audio into chunks
     for i in range(0, total_length_ms, chunk_length_ms):
@@ -70,8 +73,18 @@ def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS) -> Tupl
 
         chunk_minutes = len(chunk) / (60 * 1000)
         print(f"  Created chunk {chunk_num}: {chunk_minutes:.2f} minutes")
+        
+        if progress_callback:
+            progress_callback(
+                15 + int((chunk_num / num_chunks) * 10),
+                f"Created chunk {chunk_num} of ~{num_chunks} ({chunk_minutes:.1f} min)"
+            )
 
     print(f"Successfully created {len(chunk_paths)} chunks in {temp_dir}\n")
+    
+    if progress_callback:
+        progress_callback(25, f"Successfully created {len(chunk_paths)} chunks. Starting transcription...")
+    
     return chunk_paths, temp_dir
 
 
@@ -79,7 +92,8 @@ def transcribe_chunk(
     model: genai.GenerativeModel,
     chunk_path: str,
     chunk_num: int,
-    total_chunks: int
+    total_chunks: int,
+    progress_callback=None
 ) -> str:
     """
     Transcribe a single audio chunk using Google Gemini API.
@@ -94,14 +108,26 @@ def transcribe_chunk(
         Transcribed text from the chunk
     """
     print(f"Transcribing chunk {chunk_num}/{total_chunks}...")
+    
+    if progress_callback:
+        # Calculate progress: 25% (chunking done) to 85% (before combining)
+        # Each chunk gets (85-25)/total_chunks percentage
+        base_progress = 25
+        progress_per_chunk = 60 / total_chunks
+        current_progress = base_progress + int((chunk_num - 1) * progress_per_chunk)
+        progress_callback(current_progress, f"Transcribing chunk {chunk_num} of {total_chunks}...")
 
     audio_file = None
     try:
         # Upload audio file to Gemini
+        if progress_callback:
+            progress_callback(current_progress + 2, f"Uploading chunk {chunk_num} to API...")
         audio_file = genai.upload_file(path=chunk_path)
 
         # Wait for the file to be processed
         print("  Waiting for file to be processed...")
+        if progress_callback:
+            progress_callback(current_progress + 5, f"Processing chunk {chunk_num}...")
         while audio_file.state.name == "PROCESSING":
             time.sleep(2)
             audio_file = genai.get_file(audio_file.name)
@@ -118,6 +144,8 @@ def transcribe_chunk(
         )
 
         # Call Gemini API for transcription
+        if progress_callback:
+            progress_callback(current_progress + 8, f"Transcribing chunk {chunk_num}...")
         response = model.generate_content([prompt, audio_file])
 
         # Extract text from response
@@ -127,6 +155,13 @@ def transcribe_chunk(
         genai.delete_file(audio_file.name)
 
         print(f"  ✓ Chunk {chunk_num} transcribed ({len(text)} characters)\n")
+        
+        if progress_callback:
+            progress_callback(
+                base_progress + int(chunk_num * progress_per_chunk),
+                f"Completed chunk {chunk_num} of {total_chunks} ({len(text)} characters)"
+            )
+        
         return text
 
     except Exception as e:
@@ -144,7 +179,8 @@ def transcribe_audio(
     input_path: str,
     output_path: str = None,
     api_key: str = None,
-    chunk_length_minutes: int = CHUNK_LENGTH_MINUTES
+    chunk_length_minutes: int = CHUNK_LENGTH_MINUTES,
+    progress_callback=None
 ) -> str:
     """
     Main function to transcribe a long audio file.
@@ -218,8 +254,10 @@ def transcribe_audio(
                          "Please check your API key.")
 
     # Step 1: Chunk the audio file
+    if progress_callback:
+        progress_callback(10, "Starting audio chunking...")
     chunk_length_ms = chunk_length_minutes * 60 * 1000
-    chunk_paths, temp_dir = chunk_audio(input_path, chunk_length_ms)
+    chunk_paths, temp_dir = chunk_audio(input_path, chunk_length_ms, progress_callback)
 
     # Step 2: Transcribe each chunk
     transcripts = []
@@ -228,25 +266,36 @@ def transcribe_audio(
     print("=" * 60)
     print("Starting transcription process...")
     print("=" * 60 + "\n")
+    
+    if progress_callback:
+        progress_callback(25, f"Starting transcription of {total_chunks} chunks...")
 
     for i, chunk_path in enumerate(chunk_paths, 1):
-        transcript = transcribe_chunk(model, chunk_path, i, total_chunks)
+        transcript = transcribe_chunk(model, chunk_path, i, total_chunks, progress_callback)
         transcripts.append(transcript)
 
     # Step 3: Combine all transcripts
     print("=" * 60)
     print("Combining transcripts...")
     print("=" * 60 + "\n")
+    
+    if progress_callback:
+        progress_callback(85, "Combining all transcript chunks...")
 
     # Join transcripts with double newline for readability
     final_transcript = "\n\n".join(transcripts)
 
     # Step 4: Save to output file
     print(f"Saving final transcript to: {output_path}")
+    if progress_callback:
+        progress_callback(90, "Saving final transcript...")
     with open(output_path, "w", encoding=OUTPUT_ENCODING) as f:
         f.write(final_transcript)
 
     print(f"✓ Transcription complete! ({len(final_transcript)} characters)")
+    
+    if progress_callback:
+        progress_callback(95, f"Transcription complete! ({len(final_transcript)} characters)")
 
     # Cleanup: Remove temporary chunk files
     print(f"\nCleaning up temporary files in {temp_dir}...")

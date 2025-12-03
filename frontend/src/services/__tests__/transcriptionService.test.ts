@@ -177,6 +177,172 @@ describe('TranscriptionService', () => {
       }
     })
 
+    it('should throw error when no transcript is received', async () => {
+      const service = new TranscriptionService('http://localhost:5001')
+      const mockFile = new File(['test'], 'test.mp3', { type: 'audio/mpeg' })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('data: {"progress": 50, "message": "Processing"}\n\n'),
+          })
+          .mockResolvedValueOnce({
+            done: true,
+            value: undefined,
+          }),
+      }
+
+      const mockDecoder = {
+        decode: vi.fn().mockReturnValue('data: {"progress": 50, "message": "Processing"}\n\n'),
+      }
+
+      vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
+
+      const mockResponse: Response = {
+        ok: true,
+        body: {
+          getReader: () => mockReader,
+        },
+      } as unknown as Response
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'No transcript received from server'
+      )
+    })
+
+    it('should handle non-JSON parse errors', async () => {
+      const service = new TranscriptionService('http://localhost:5001')
+      const mockFile = new File(['test'], 'test.mp3', { type: 'audio/mpeg' })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('data: {"progress": 50}\n\n'),
+          })
+          .mockResolvedValueOnce({
+            done: true,
+            value: undefined,
+          }),
+      }
+
+      const mockDecoder = {
+        decode: vi.fn().mockReturnValue('data: {"progress": 50}\n\n'),
+      }
+
+      vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
+
+      const mockResponse: Response = {
+        ok: true,
+        body: {
+          getReader: () => mockReader,
+        },
+      } as unknown as Response
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+
+      // Mock JSON.parse to throw a non-JSON error
+      const originalParse = JSON.parse
+      JSON.parse = vi.fn(() => {
+        throw new Error('Some other error')
+      })
+
+      try {
+        await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow('Some other error')
+      } finally {
+        JSON.parse = originalParse
+      }
+    })
+
+    it('should handle error when hasError is true', async () => {
+      const service = new TranscriptionService('http://localhost:5001')
+      const mockFile = new File(['test'], 'test.mp3', { type: 'audio/mpeg' })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('data: {"error": "Transcription failed"}\n\n'),
+          })
+          .mockResolvedValueOnce({
+            done: true,
+            value: undefined,
+          }),
+      }
+
+      const mockDecoder = {
+        decode: vi.fn().mockReturnValue('data: {"error": "Transcription failed"}\n\n'),
+      }
+
+      vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
+
+      const mockResponse: Response = {
+        ok: true,
+        body: {
+          getReader: () => mockReader,
+        },
+      } as unknown as Response
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow('Transcription failed')
+    })
+
+    it('should handle non-Error exceptions in catch block', async () => {
+      const service = new TranscriptionService('http://localhost:5001')
+      const mockFile = new File(['test'], 'test.mp3', { type: 'audio/mpeg' })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('data: {"progress": 50}\n\n'),
+          })
+          .mockResolvedValueOnce({
+            done: true,
+            value: undefined,
+          }),
+      }
+
+      const mockDecoder = {
+        decode: vi.fn().mockReturnValue('data: {"progress": 50}\n\n'),
+      }
+
+      vi.spyOn(globalThis, 'TextDecoder').mockReturnValue(mockDecoder as unknown as TextDecoder)
+
+      const mockResponse: Response = {
+        ok: true,
+        body: {
+          getReader: () => mockReader,
+        },
+      } as unknown as Response
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResponse)
+
+      // Mock JSON.parse to throw a non-Error exception
+      const originalParse = JSON.parse
+      JSON.parse = vi.fn(() => {
+        throw 'String error' // Not an Error instance
+      })
+
+      try {
+        // The non-Error exception is caught but not re-thrown, so it continues
+        // and eventually throws "No transcript received" error
+        await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+          'No transcript received from server'
+        )
+      } finally {
+        JSON.parse = originalParse
+      }
+    })
+
     it('should throw error when no response body', async () => {
       const mockResponse: Response = {
         ok: true,
