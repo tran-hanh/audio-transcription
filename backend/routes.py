@@ -14,8 +14,6 @@ from backend.validators import FileValidator
 
 logger = logging.getLogger(__name__)
 
-api = Blueprint('api', __name__)
-
 
 def create_routes(
     config,
@@ -33,6 +31,8 @@ def create_routes(
     Returns:
         Configured Blueprint
     """
+    # Create a new blueprint for each call to avoid conflicts in tests
+    api = Blueprint('api', __name__)
     
     @api.route('/health', methods=['GET'])
     def health_check():

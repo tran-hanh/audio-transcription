@@ -295,6 +295,21 @@ class TestTranscribeEndpoint:
         # Should return 400 (no file) or 500 (exception), not crash
         assert response.status_code in [400, 500]
 
+    def test_routes_exception_handling_unexpected_error(self, client, mock_api_key, sample_audio_file):
+        """Test exception handling for unexpected errors in routes (lines 88-90)"""
+        # Mock file_upload_service to raise an unexpected exception
+        with patch('backend.routes.file_upload_service') as mock_service:
+            mock_service.save_uploaded_file.side_effect = RuntimeError('Unexpected error')
+            
+            response = client.post('/transcribe', data={
+                'audio': (sample_audio_file, 'test.mp3')
+            })
+            
+            # Should return 500 with error message
+            assert response.status_code == 500
+            data = response.get_json()
+            assert 'error' in data
+
     def test_cors_headers(self, client):
         """Test CORS headers are present"""
         response = client.get('/health')
