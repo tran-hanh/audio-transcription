@@ -81,7 +81,9 @@ class TestTranscriptionService:
             assert len(results) >= 2
             assert 'error' in results[1].lower() or 'too large' in results[1].lower()
         finally:
-            os.unlink(tmp_path)
+            # File might have been cleaned up by the service, so check if it exists
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     def test_transcribe_file_invalid_chunk_length(self, transcription_service):
         """Test transcribe_file normalizes chunk length"""
@@ -179,12 +181,23 @@ class TestTranscriptionService:
             input_path = input_file.name
         
         try:
-            mock_transcribe.return_value = '/nonexistent/file.txt'
+            # Mock the transcription to return a non-existent file path
+            # The transcription runs in a background greenlet/thread, so we need to mock it
+            def mock_transcribe_func(*args, **kwargs):
+                # Simulate the transcription completing and returning a non-existent path
+                return '/nonexistent/file.txt'
+            
+            mock_transcribe.side_effect = mock_transcribe_func
             
             generator = transcription_service.transcribe_file(input_path, 12)
+            results = list(generator)
             
-            with pytest.raises(FileNotFoundError):
-                list(generator)
+            # The FileNotFoundError is caught and converted to an error message in the generator
+            # So we should check for the error in the results instead of expecting an exception
+            assert len(results) > 0
+            # Last result should contain the error
+            error_result = results[-1]
+            assert 'error' in error_result.lower() or 'not found' in error_result.lower() or 'transcript file not found' in error_result.lower()
         finally:
             if os.path.exists(input_path):
                 os.unlink(input_path)
