@@ -266,6 +266,35 @@ class TestTranscribeEndpoint:
             assert response.status_code == 200
             assert response.mimetype == 'text/event-stream'
 
+    def test_chunk_length_invalid_type(self, client, mock_api_key, sample_audio_file):
+        """Test chunk length with invalid type (ValueError/TypeError handling)"""
+        with patch('src.transcribe.transcribe_audio') as mock_transcribe:
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
+                tmp.write('Test transcript')
+                tmp_path = tmp.name
+
+            mock_transcribe.return_value = tmp_path
+
+            # Test with invalid chunk length type (should default to 12)
+            response = client.post('/transcribe', data={
+                'audio': (sample_audio_file, 'test.mp3'),
+                'chunk_length': 'invalid'  # Should trigger ValueError/TypeError and default
+            })
+
+            assert response.status_code == 200
+
+            # Cleanup
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_routes_exception_handling(self, client, mock_api_key):
+        """Test exception handling in routes (lines 88-90)"""
+        # Trigger an exception by not providing a file
+        # This should trigger the exception handler
+        response = client.post('/transcribe', data={})
+        # Should return 400 (no file) or 500 (exception), not crash
+        assert response.status_code in [400, 500]
+
     def test_cors_headers(self, client):
         """Test CORS headers are present"""
         response = client.get('/health')
