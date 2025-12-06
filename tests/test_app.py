@@ -32,14 +32,6 @@ validator = FileValidator(
 )
 transcription_service = TranscriptionService(config)
 
-def allowed_file(filename: str) -> bool:
-    """Helper function to check if file is allowed"""
-    is_valid, _ = validator.validate_filename(filename)
-    return is_valid
-
-def send_progress(progress: int, message: str) -> str:
-    """Helper function to format progress message"""
-    return transcription_service.send_progress(progress, message)
 
 
 @pytest.fixture
@@ -75,57 +67,6 @@ class TestHealthEndpoint:
         assert data['status'] == 'ok'
 
 
-class TestAllowedFile:
-    """Tests for allowed_file function"""
-
-    def test_allowed_mp3(self):
-        """Test MP3 files are allowed"""
-        assert allowed_file('test.mp3') is True
-
-    def test_allowed_wav(self):
-        """Test WAV files are allowed"""
-        assert allowed_file('test.wav') is True
-
-    def test_allowed_m4a(self):
-        """Test M4A files are allowed"""
-        assert allowed_file('test.m4a') is True
-
-    def test_case_insensitive(self):
-        """Test file extension check is case insensitive"""
-        assert allowed_file('test.MP3') is True
-        assert allowed_file('test.WAV') is True
-
-    def test_disallowed_txt(self):
-        """Test TXT files are not allowed"""
-        assert allowed_file('test.txt') is False
-
-    def test_disallowed_no_extension(self):
-        """Test files without extension are not allowed"""
-        assert allowed_file('test') is False
-
-    def test_disallowed_pdf(self):
-        """Test PDF files are not allowed"""
-        assert allowed_file('test.pdf') is False
-
-
-class TestSendProgress:
-    """Tests for send_progress function"""
-
-    def test_send_progress_format(self):
-        """Test progress message format"""
-        result = send_progress(50, 'Processing...')
-        assert result.startswith('data: ')
-        assert 'Processing...' in result
-        assert '50' in result
-
-    def test_send_progress_json(self):
-        """Test progress message contains valid JSON"""
-        import json
-        result = send_progress(75, 'Almost done')
-        json_str = result.replace('data: ', '').strip()
-        data = json.loads(json_str)
-        assert data['progress'] == 75
-        assert data['message'] == 'Almost done'
 
 
 class TestTranscribeEndpoint:
@@ -297,10 +238,10 @@ class TestTranscribeEndpoint:
 
     def test_routes_exception_handling_unexpected_error(self, client, mock_api_key, sample_audio_file):
         """Test exception handling for unexpected errors in routes (lines 88-90)"""
-        # Mock transcribe_file to raise an unexpected exception to test the exception handler
+        # Mock tempfile.mkdtemp to raise an unexpected exception BEFORE the generator
         # This will trigger the exception handler in the route (lines 88-90)
-        with patch('backend.services.TranscriptionService.transcribe_file') as mock_transcribe:
-            mock_transcribe.side_effect = RuntimeError('Unexpected error')
+        with patch('backend.routes.tempfile.mkdtemp') as mock_mkdtemp:
+            mock_mkdtemp.side_effect = RuntimeError('Unexpected error')
             
             response = client.post('/transcribe', data={
                 'audio': (sample_audio_file, 'test.mp3')

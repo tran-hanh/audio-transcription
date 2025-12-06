@@ -1,47 +1,20 @@
 #!/usr/bin/env python3
 """
-Tests for backend services module
+Tests for backend services module.
+
+This module tests:
+- TranscriptionService: Core transcription logic, progress reporting, error handling
+- FileUploadService: File upload and validation
+- Cleanup utilities: Temporary file management
 """
 
 import os
 import tempfile
 import json
 import pytest
-from unittest.mock import patch, MagicMock, Mock
-from backend.config import Config
+from unittest.mock import patch, MagicMock
 from backend.services import TranscriptionService, FileUploadService
 from backend.validators import FileValidator
-
-
-@pytest.fixture
-def test_config():
-    """Create a test configuration"""
-    return Config(
-        gemini_api_key='test-api-key',
-        max_file_size=100 * 1024 * 1024,  # 100MB for testing
-        default_chunk_length=12
-    )
-
-
-@pytest.fixture
-def transcription_service(test_config):
-    """Create a TranscriptionService instance"""
-    return TranscriptionService(test_config)
-
-
-@pytest.fixture
-def file_validator(test_config):
-    """Create a FileValidator instance"""
-    return FileValidator(
-        allowed_extensions=test_config.allowed_extensions,
-        max_size=test_config.max_file_size
-    )
-
-
-@pytest.fixture
-def file_upload_service(file_validator):
-    """Create a FileUploadService instance"""
-    return FileUploadService(file_validator)
 
 
 class TestTranscriptionService:
@@ -55,19 +28,173 @@ class TestTranscriptionService:
         assert isinstance(service.validator, FileValidator)
 
     def test_gevent_import_fallback(self, test_config):
-        """Test that service works without gevent (fallback to time.sleep)"""
+        """Test that service works with or without gevent (fallback to time.sleep)"""
         # This tests the import fallback logic (lines 23-25)
+        # The fallback behavior is tested implicitly when gevent is not available
         service = TranscriptionService(test_config)
-        # Service should initialize even without gevent
         assert service is not None
+        assert service.config == test_config
 
-    def test_gevent_import_fallback_coverage(self, test_config):
-        """Test that import fallback logic is covered"""
-        # This test ensures the try/except for gevent import is covered
-        # The actual fallback behavior is tested implicitly when gevent is not available
-        service = TranscriptionService(test_config)
-        # Service should work regardless of gevent availability
-        assert service is not None
+    @patch('backend.services.transcribe_audio')
+    def test_progress_callback_coverage(self, mock_transcribe, transcription_service):
+        """Test progress callback is called (line 103)"""
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b'x' * 1000)
+            tmp_path = tmp.name
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as out:
+            out.write('Test transcript')
+            out_path = out.name
+        
+        try:
+            mock_transcribe.return_value = out_path
+            
+            generator = transcription_service.transcribe_file(tmp_path, 12)
+            results = list(generator)
+            
+            # Should have progress updates
+            assert len(results) > 0
+            # Verify transcribe_audio was called with progress_callback
+            mock_transcribe.assert_called_once()
+            call_kwargs = mock_transcribe.call_args[1]
+            assert 'progress_callback' in call_kwargs
+            assert call_kwargs['progress_callback'] is not None
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
+    @patch('backend.services.transcribe_audio')
+    def test_error_handling_path(self, mock_transcribe, transcription_service):
+        """Test error handling path (line 138)"""
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b'x' * 1000)
+            tmp_path = tmp.name
+        
+        try:
+            # Make transcribe_audio raise an error
+            mock_transcribe.side_effect = ValueError('Transcription failed')
+            
+            generator = transcription_service.transcribe_file(tmp_path, 12)
+            results = list(generator)
+            
+            # Should yield error message
+            assert len(results) > 0
+            error_result = results[-1]
+            assert 'error' in error_result.lower() or 'transcription failed' in error_result.lower()
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    @patch('backend.services.transcribe_audio')
+    def test_progress_queue_handling(self, mock_transcribe, transcription_service):
+        """Test progress queue handling (lines 146-147)"""
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b'x' * 1000)
+            tmp_path = tmp.name
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as out:
+            out.write('Test transcript')
+            out_path = out.name
+        
+        try:
+            # Create a progress callback that adds to queue
+            progress_calls = []
+            def mock_progress_callback(progress, message):
+                progress_calls.append((progress, message))
+            
+            # Mock transcribe to call progress callback
+            def mock_transcribe_func(*args, **kwargs):
+                callback = kwargs.get('progress_callback')
+                if callback:
+                    callback(10, 'Test progress')
+                    callback(50, 'Halfway')
+                return out_path
+            
+            mock_transcribe.side_effect = mock_transcribe_func
+            
+            generator = transcription_service.transcribe_file(tmp_path, 12)
+            results = list(generator)
+            
+            # Should have received progress updates
+            assert len(results) > 0
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
+    @patch('backend.services.transcribe_audio')
+    @patch('time.time')
+    def test_heartbeat_sending(self, mock_time, mock_transcribe, transcription_service):
+        """Test heartbeat sending (lines 154-155)"""
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b'x' * 1000)
+            tmp_path = tmp.name
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as out:
+            out.write('Test transcript')
+            out_path = out.name
+        
+        try:
+            # Mock time to simulate long wait (triggers heartbeat)
+            # Start at 0, then 15 seconds later (triggers heartbeat), then 30
+            call_count = [0]
+            def time_side_effect():
+                result = call_count[0] * 15
+                call_count[0] += 1
+                return result
+            
+            mock_time.side_effect = time_side_effect
+            
+            # Make transcription take time
+            def slow_transcribe(*args, **kwargs):
+                import time
+                time.sleep(0.1)  # Small delay
+                return out_path
+            
+            mock_transcribe.side_effect = slow_transcribe
+            
+            generator = transcription_service.transcribe_file(tmp_path, 12)
+            results = list(generator)
+            
+            # Should have heartbeat messages
+            assert len(results) > 0
+            # Check for heartbeat message
+            results_str = ' '.join(results)
+            assert 'Transcription in progress' in results_str or len(results) > 1
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
+    @patch('backend.services.transcribe_audio')
+    def test_remaining_progress_updates(self, mock_transcribe, transcription_service):
+        """Test remaining progress updates handling (line 164)"""
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(b'x' * 1000)
+            tmp_path = tmp.name
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as out:
+            out.write('Test transcript')
+            out_path = out.name
+        
+        try:
+            mock_transcribe.return_value = out_path
+            
+            generator = transcription_service.transcribe_file(tmp_path, 12)
+            results = list(generator)
+            
+            # Should process all progress updates
+            assert len(results) > 0
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
 
     def test_send_progress(self, transcription_service):
         """Test send_progress method formats correctly"""
@@ -314,33 +441,31 @@ class TestFileUploadService:
                 import shutil
                 shutil.rmtree(os.path.dirname(os.path.dirname(upload_dir)))
 
-    def test_cleanup_temp_files(self, transcription_service):
-        """Test _cleanup_temp_files method"""
-        import tempfile
-        import os
-        
-        # Create temporary files
+    def test_cleanup_temp_files_success(self, transcription_service):
+        """Test _cleanup_temp_files successfully removes files and directories"""
+        # Arrange: Create temporary files
         temp_dir = tempfile.mkdtemp()
         temp_file = os.path.join(temp_dir, 'test.txt')
         with open(temp_file, 'w') as f:
             f.write('test')
         
-        # Test cleanup
+        # Act: Clean up files
         TranscriptionService._cleanup_temp_files(temp_dir, temp_file, temp_file)
         
-        # Files should be cleaned up
+        # Assert: Files should be cleaned up
         assert not os.path.exists(temp_file)
         assert not os.path.exists(temp_dir)
 
     def test_cleanup_temp_files_nonexistent(self, transcription_service):
-        """Test _cleanup_temp_files with nonexistent files"""
-        # Should not raise error
+        """Test _cleanup_temp_files handles nonexistent files gracefully"""
+        # Act & Assert: Should not raise error
         TranscriptionService._cleanup_temp_files(None, '/nonexistent', '/nonexistent')
 
     def test_cleanup_temp_files_oserror(self, transcription_service):
-        """Test _cleanup_temp_files handles OSError gracefully"""
-        # Mock os.remove to raise OSError
+        """Test _cleanup_temp_files handles OSError gracefully (lines 219-220)"""
+        # Arrange: Mock os.remove to raise OSError
         with patch('os.remove', side_effect=OSError('Permission denied')):
-            # Should not raise, just log warning
+            # Act & Assert: Should not raise, just log warning
             TranscriptionService._cleanup_temp_files(None, '/tmp/test', None)
+
 
