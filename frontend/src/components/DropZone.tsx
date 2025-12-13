@@ -13,11 +13,8 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileSelect, disabled = fal
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
 
-  const handleClick = useCallback(() => {
-    if (!disabled && fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  }, [disabled]);
+  // No need for handleClick - the label automatically triggers the input when clicked
+  // since the input is inside the label element
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +56,6 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileSelect, disabled = fal
   return (
     <label
       className={`drop-zone ${isDragging ? 'dragover' : ''}`}
-      onClick={handleClick}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
