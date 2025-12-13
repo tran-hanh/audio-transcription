@@ -4,7 +4,7 @@ services:
     env: python
     pythonVersion: 3.12.0
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -c gunicorn_config.py backend.app:app
+    startCommand: gunicorn backend.app:app --bind 0.0.0.0:$PORT --worker-class gevent --workers 2 --worker-connections 1000 --timeout 1800 --log-level info
     envVars:
       - key: GEMINI_API_KEY
         sync: false  # Set this in Render dashboard

@@ -8,12 +8,12 @@ import logging
 import os
 import warnings
 
+# Suppress pydub SyntaxWarnings (from library, not our code) - must be before any imports
+warnings.filterwarnings('ignore', category=SyntaxWarning, module='pydub')
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
-
-# Suppress pydub SyntaxWarnings (from library, not our code)
-warnings.filterwarnings('ignore', category=SyntaxWarning, module='pydub')
 
 from backend.config import Config
 from backend.routes import create_routes
