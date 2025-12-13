@@ -34,12 +34,28 @@ def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS, progres
 
     Returns:
         Tuple of (list of chunk file paths, temp directory path)
+        
+    Raises:
+        RuntimeError: If audio file cannot be loaded or processed
     """
     print(f"Loading audio file: {audio_path}")
 
     # Load the audio file
     # pydub supports many formats: mp3, wav, m4a, flac, etc.
-    audio = AudioSegment.from_file(audio_path)
+    # This uses subprocess calls to ffmpeg, which should be gevent-compatible
+    # if monkey patching is enabled
+    try:
+        audio = AudioSegment.from_file(audio_path)
+    except Exception as e:
+        error_msg = (
+            f"Failed to load audio file: {e}. "
+            "Please ensure the file is a valid audio format and ffmpeg is available."
+        )
+        print(f"ERROR: {error_msg}")
+        if progress_callback:
+            progress_callback(0, error_msg)
+        raise RuntimeError(error_msg) from e
+    
     total_length_ms = len(audio)
     total_minutes = total_length_ms / (60 * 1000)
 
@@ -68,7 +84,16 @@ def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS, progres
         chunk_path = os.path.join(temp_dir, chunk_filename)
 
         # Export chunk as MP3 (you can change format if needed)
-        chunk.export(chunk_path, format="mp3")
+        # This uses subprocess calls to ffmpeg
+        try:
+            chunk.export(chunk_path, format="mp3")
+        except Exception as e:
+            error_msg = f"Failed to export chunk {chunk_num}: {e}"
+            print(f"ERROR: {error_msg}")
+            if progress_callback:
+                progress_callback(0, error_msg)
+            raise RuntimeError(error_msg) from e
+        
         chunk_paths.append(chunk_path)
 
         chunk_minutes = len(chunk) / (60 * 1000)

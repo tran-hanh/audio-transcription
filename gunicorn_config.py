@@ -15,8 +15,9 @@ backlog = 2048
 workers = 2
 worker_class = 'gevent'
 worker_connections = 1000
-timeout = 1800  # 30 minutes
+timeout = 3600  # 60 minutes - increased for long audio files
 keepalive = 5
+graceful_timeout = 120  # Give workers 2 minutes to finish before force kill
 
 # Logging
 loglevel = 'info'

@@ -4,6 +4,20 @@ Flask API server for audio transcription
 Handles file uploads and transcription requests
 """
 
+# CRITICAL: Monkey patch gevent BEFORE any other imports
+# This makes subprocess calls (used by pydub) non-blocking for gevent workers
+# Without this, pydub's ffmpeg subprocess calls will block the gevent worker
+# and cause worker timeouts
+try:
+    from gevent import monkey
+    # Patch all standard library modules to be gevent-compatible
+    # This includes subprocess, which pydub uses for ffmpeg calls
+    monkey.patch_all()
+except ImportError:
+    # gevent not available, continue without monkey patching
+    # This should not happen in production since gevent is required
+    pass
+
 import logging
 import os
 import warnings
