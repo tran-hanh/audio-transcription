@@ -129,7 +129,10 @@ class TranscriptionService:
             
             # Process progress updates and send them to client
             last_progress_time = time.time()
-            heartbeat_interval = 10  # Send heartbeat every 10 seconds to keep connection alive
+            # Send heartbeat every 8 seconds to keep connection alive
+            # More frequent than frontend timeout (5 min) to ensure connection stays open
+            # for long operations (15-20 minutes)
+            heartbeat_interval = 8  # Send heartbeat every 8 seconds to keep connection alive
             
             while transcription_alive():
                 # Check for errors
@@ -149,9 +152,16 @@ class TranscriptionService:
                     pass
                 
                 # Send heartbeat frequently to keep connection alive and prevent timeout
+                # This is critical for long operations (15-20 minutes) to prevent browser/proxy timeouts
                 current_time = time.time()
                 if current_time - last_progress_time >= heartbeat_interval:
-                    yield self.send_progress(50, 'Transcription in progress... This may take several minutes. Please keep this page open.')
+                    # Send a heartbeat with current progress to keep connection alive
+                    # Use a generic message that doesn't change too often
+                    elapsed_minutes = int((current_time - last_progress_time) / 60)
+                    yield self.send_progress(
+                        50, 
+                        f'Transcription in progress... This may take 15-20 minutes for large files. Please keep this page open.'
+                    )
                     last_progress_time = current_time
                 
                 # Small sleep to avoid busy waiting (use gevent.sleep for gevent workers)

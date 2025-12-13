@@ -77,12 +77,18 @@ def create_routes(
                     pass
             
             # Create streaming response (CORS headers handled by Flask-CORS)
+            # Important headers for long-running SSE connections:
+            # - Connection: keep-alive - keeps HTTP connection open
+            # - X-Accel-Buffering: no - prevents nginx/proxy buffering
+            # - Cache-Control: no-cache - prevents caching of SSE stream
             response = Response(
                 stream_with_context(generate()),
                 mimetype='text/event-stream',
                 headers={
                     'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
                     'X-Accel-Buffering': 'no',
+                    'Transfer-Encoding': 'chunked',
                 }
             )
             return response
