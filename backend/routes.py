@@ -2,6 +2,7 @@
 Flask route handlers
 """
 
+import json
 import logging
 import os
 import tempfile
@@ -72,6 +73,14 @@ def create_routes(
                         file_path=file_path,
                         chunk_length=chunk_length
                     )
+                except SystemExit:
+                    # Handle worker timeout/shutdown gracefully
+                    logger.warning("SystemExit in transcription generator - worker timeout or shutdown")
+                    yield f"data: {json.dumps({'error': 'Worker timeout detected. The transcription may have been interrupted. Please try again with a smaller file or contact support.'})}\n\n"
+                except Exception as e:
+                    # Catch any other exceptions and log them
+                    logger.error(f"Error in transcription generator: {e}", exc_info=True)
+                    yield f"data: {json.dumps({'error': f'Transcription error: {str(e)}'})}\n\n"
                 finally:
                     # Cleanup will be handled by service
                     pass

@@ -15,9 +15,11 @@ backlog = 2048
 workers = 2
 worker_class = 'gevent'
 worker_connections = 1000
-timeout = 3600  # 60 minutes - increased for long audio files
+timeout = 7200  # 120 minutes - increased for very long audio files (up to 20 minutes transcription time)
 keepalive = 5
-graceful_timeout = 120  # Give workers 2 minutes to finish before force kill
+graceful_timeout = 300  # Give workers 5 minutes to finish before force kill
+max_requests = 1000  # Restart workers after this many requests to prevent memory leaks
+max_requests_jitter = 50  # Add randomness to prevent all workers restarting at once
 
 # Logging
 loglevel = 'info'

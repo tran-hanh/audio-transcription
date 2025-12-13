@@ -134,38 +134,67 @@ class TranscriptionService:
             # for long operations (15-20 minutes)
             heartbeat_interval = 8  # Send heartbeat every 8 seconds to keep connection alive
             
-            while transcription_alive():
-                # Check for errors
+            try:
+                while transcription_alive():
+                    # Check for errors
+                    try:
+                        error = transcription_error.get_nowait()
+                        raise error
+                    except QUEUE_EMPTY:
+                        pass
+                    
+                    # Check for progress updates (non-blocking)
+                    try:
+                        while True:
+                            progress, message = progress_queue.get_nowait()
+                            yield self.send_progress(progress, message)
+                            last_progress_time = time.time()
+                    except QUEUE_EMPTY:
+                        pass
+                    
+                    # Send heartbeat frequently to keep connection alive and prevent timeout
+                    # This is critical for long operations (15-20 minutes) to prevent browser/proxy timeouts
+                    current_time = time.time()
+                    if current_time - last_progress_time >= heartbeat_interval:
+                        # Send a heartbeat with current progress to keep connection alive
+                        # Use a generic message that doesn't change too often
+                        elapsed_minutes = int((current_time - last_progress_time) / 60)
+                        yield self.send_progress(
+                            50, 
+                            f'Transcription in progress... This may take 15-20 minutes for large files. Please keep this page open.'
+                        )
+                        last_progress_time = current_time
+                    
+                    # Small sleep to avoid busy waiting (use gevent.sleep for gevent workers)
+                    # Wrap in try-except to handle SystemExit from worker timeout gracefully
+                    try:
+                        SLEEP(0.5)  # Check every 500ms for progress updates
+                    except (SystemExit, KeyboardInterrupt):
+                        # Worker is being killed (timeout or shutdown)
+                        # Log the event
+                        logger.warning("Worker timeout/shutdown detected during transcription")
+                        # Try to yield a message about the timeout
+                        try:
+                            yield self.send_progress(
+                                50,
+                                'Worker timeout detected. The transcription may have been interrupted.'
+                            )
+                            yield f"data: {json.dumps({'error': 'Worker timeout detected. The transcription may have been interrupted. Please try again with a smaller file or contact support.'})}\n\n"
+                        except:
+                            pass  # Connection may be closed, ignore
+                        # Break out of loop to allow cleanup
+                        # Don't re-raise SystemExit here - we've handled it
+                        return
+            except (SystemExit, KeyboardInterrupt):
+                # Handle worker timeout/shutdown gracefully at outer level
+                logger.warning("SystemExit caught in transcription loop - worker timeout or shutdown")
+                # Try to yield error message if connection is still open
                 try:
-                    error = transcription_error.get_nowait()
-                    raise error
-                except QUEUE_EMPTY:
-                    pass
-                
-                # Check for progress updates (non-blocking)
-                try:
-                    while True:
-                        progress, message = progress_queue.get_nowait()
-                        yield self.send_progress(progress, message)
-                        last_progress_time = time.time()
-                except QUEUE_EMPTY:
-                    pass
-                
-                # Send heartbeat frequently to keep connection alive and prevent timeout
-                # This is critical for long operations (15-20 minutes) to prevent browser/proxy timeouts
-                current_time = time.time()
-                if current_time - last_progress_time >= heartbeat_interval:
-                    # Send a heartbeat with current progress to keep connection alive
-                    # Use a generic message that doesn't change too often
-                    elapsed_minutes = int((current_time - last_progress_time) / 60)
-                    yield self.send_progress(
-                        50, 
-                        f'Transcription in progress... This may take 15-20 minutes for large files. Please keep this page open.'
-                    )
-                    last_progress_time = current_time
-                
-                # Small sleep to avoid busy waiting (use gevent.sleep for gevent workers)
-                SLEEP(0.5)  # Check every 500ms for progress updates
+                    yield f"data: {json.dumps({'error': 'Worker timeout detected. The transcription may have been interrupted. Please try again with a smaller file or contact support.'})}\n\n"
+                except:
+                    pass  # Connection may be closed, ignore
+                # Don't re-raise - we've handled the error
+                return
             
             # Process any remaining progress updates
             try:
