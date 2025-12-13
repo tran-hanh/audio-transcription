@@ -8,7 +8,6 @@ import tempfile
 from typing import Tuple
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
-from flask_cors import cross_origin
 
 from backend.services import FileUploadService, TranscriptionService
 from backend.validators import FileValidator
@@ -36,21 +35,17 @@ def create_routes(
     api = Blueprint('api', __name__)
     
     @api.route('/health', methods=['GET', 'OPTIONS'])
-    @cross_origin()
     def health_check():
         """Health check endpoint"""
         return jsonify({'status': 'ok'}), 200
     
     @api.route('/transcribe', methods=['POST', 'OPTIONS'])
-    @cross_origin()
     def transcribe():
         """Handle audio file upload and transcription"""
         try:
             # Validate request
             if 'audio' not in request.files:
-                response = jsonify({'error': 'No audio file provided'})
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                return response, 400
+                return jsonify({'error': 'No audio file provided'}), 400
             
             file = request.files['audio']
             
@@ -67,9 +62,7 @@ def create_routes(
             try:
                 file_path = file_upload_service.save_uploaded_file(file, temp_dir)
             except ValueError as e:
-                response = jsonify({'error': str(e)})
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                return response, 400
+                return jsonify({'error': str(e)}), 400
             
             # Create generator for streaming response
             def generate():
@@ -83,25 +76,20 @@ def create_routes(
                     # Cleanup will be handled by service
                     pass
             
-            # Create response with CORS headers for streaming
+            # Create streaming response (CORS headers handled by Flask-CORS)
             response = Response(
                 stream_with_context(generate()),
                 mimetype='text/event-stream',
                 headers={
                     'Cache-Control': 'no-cache',
                     'X-Accel-Buffering': 'no',
-                    'Access-Control-Allow-Origin': '*',  # Allow all origins for streaming
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type',
                 }
             )
             return response
             
         except Exception as e:
             logger.error(f"Request error: {e}", exc_info=True)
-            response = jsonify({'error': 'Internal server error'})
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response, 500
+            return jsonify({'error': 'Internal server error'}), 500
     
     return api
 

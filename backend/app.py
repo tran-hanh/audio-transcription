@@ -69,9 +69,7 @@ def create_app(config: Config = None) -> Flask:
     def handle_request_entity_too_large(e):
         """Handle 413 Request Entity Too Large errors"""
         max_size_mb = config.max_file_size / (1024 * 1024)
-        response = jsonify({'error': f'File too large. Maximum size: {max_size_mb:.0f} MB'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response, 413
+        return jsonify({'error': f'File too large. Maximum size: {max_size_mb:.0f} MB'}), 413
     
     # Initialize services
     validator = FileValidator(
