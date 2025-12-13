@@ -39,7 +39,16 @@ def create_app(config: Config = None) -> Flask:
         Configured Flask application
     """
     app = Flask(__name__)
-    CORS(app)  # Enable CORS for GitHub Pages
+    # Configure CORS explicitly to allow GitHub Pages and local development
+    # Using '*' for origins to allow all origins (can be restricted later if needed)
+    CORS(
+        app,
+        origins='*',  # Allow all origins for now
+        methods=['GET', 'POST', 'OPTIONS'],
+        allow_headers=['Content-Type', 'Authorization'],
+        expose_headers=['Content-Type'],
+        supports_credentials=False
+    )
     
     # Load configuration
     if config is None:
@@ -60,7 +69,9 @@ def create_app(config: Config = None) -> Flask:
     def handle_request_entity_too_large(e):
         """Handle 413 Request Entity Too Large errors"""
         max_size_mb = config.max_file_size / (1024 * 1024)
-        return jsonify({'error': f'File too large. Maximum size: {max_size_mb:.0f} MB'}), 413
+        response = jsonify({'error': f'File too large. Maximum size: {max_size_mb:.0f} MB'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 413
     
     # Initialize services
     validator = FileValidator(

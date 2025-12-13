@@ -8,6 +8,7 @@ import tempfile
 from typing import Tuple
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask_cors import cross_origin
 
 from backend.services import FileUploadService, TranscriptionService
 from backend.validators import FileValidator
@@ -34,18 +35,22 @@ def create_routes(
     # Create a new blueprint for each call to avoid conflicts in tests
     api = Blueprint('api', __name__)
     
-    @api.route('/health', methods=['GET'])
+    @api.route('/health', methods=['GET', 'OPTIONS'])
+    @cross_origin()
     def health_check():
         """Health check endpoint"""
         return jsonify({'status': 'ok'}), 200
     
-    @api.route('/transcribe', methods=['POST'])
+    @api.route('/transcribe', methods=['POST', 'OPTIONS'])
+    @cross_origin()
     def transcribe():
         """Handle audio file upload and transcription"""
         try:
             # Validate request
             if 'audio' not in request.files:
-                return jsonify({'error': 'No audio file provided'}), 400
+                response = jsonify({'error': 'No audio file provided'})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                return response, 400
             
             file = request.files['audio']
             
@@ -62,7 +67,9 @@ def create_routes(
             try:
                 file_path = file_upload_service.save_uploaded_file(file, temp_dir)
             except ValueError as e:
-                return jsonify({'error': str(e)}), 400
+                response = jsonify({'error': str(e)})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                return response, 400
             
             # Create generator for streaming response
             def generate():
@@ -76,18 +83,25 @@ def create_routes(
                     # Cleanup will be handled by service
                     pass
             
-            return Response(
+            # Create response with CORS headers for streaming
+            response = Response(
                 stream_with_context(generate()),
                 mimetype='text/event-stream',
                 headers={
                     'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no'
+                    'X-Accel-Buffering': 'no',
+                    'Access-Control-Allow-Origin': '*',  # Allow all origins for streaming
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type',
                 }
             )
+            return response
             
         except Exception as e:
             logger.error(f"Request error: {e}", exc_info=True)
-            return jsonify({'error': 'Internal server error'}), 500
+            response = jsonify({'error': 'Internal server error'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 500
     
     return api
 
