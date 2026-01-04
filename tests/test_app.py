@@ -252,19 +252,24 @@ class TestTranscribeEndpoint:
             data = response.get_json()
             assert 'error' in data
 
-    @patch('src.transcribe.transcribe_audio')
+    @patch('backend.services.transcribe_audio')
     def test_routes_systemexit_handling(self, mock_transcribe, client, mock_api_key, sample_audio_file):
         """Test SystemExit handling in routes generator (lines 78-79)"""
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
-            tmp.write('Test transcript')
-            tmp_path = tmp.name
+        # Make transcription raise SystemExit in the generator
+        # We need to patch at the service level, not the transcribe module level
+        from backend.services import TranscriptionService
+        
+        # Create a mock that raises SystemExit when the generator is consumed
+        original_transcribe_file = TranscriptionService.transcribe_file
+        
+        def mock_transcribe_file_raising_systemexit(self, file_path, chunk_length):
+            """Mock that raises SystemExit"""
+            yield 'data: {"progress": 10, "message": "Starting..."}\n\n'
+            raise SystemExit('Worker timeout')
         
         try:
-            # Make transcription raise SystemExit
-            def raise_systemexit(*args, **kwargs):
-                raise SystemExit('Worker timeout')
-            
-            mock_transcribe.side_effect = raise_systemexit
+            # Patch the method to raise SystemExit
+            TranscriptionService.transcribe_file = mock_transcribe_file_raising_systemexit
             
             response = client.post('/transcribe', data={
                 'audio': (sample_audio_file, 'test.mp3')
@@ -279,19 +284,26 @@ class TestTranscribeEndpoint:
             content_str = content.decode('utf-8')
             assert 'timeout' in content_str.lower() or 'interrupted' in content_str.lower()
         finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            # Restore original method
+            TranscriptionService.transcribe_file = original_transcribe_file
 
     @patch('src.transcribe.transcribe_audio')
     def test_routes_exception_handling_in_generator(self, mock_transcribe, client, mock_api_key, sample_audio_file):
         """Test Exception handling in routes generator (lines 82-83)"""
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
-            tmp.write('Test transcript')
-            tmp_path = tmp.name
+        # Test that generic exceptions in the generator are caught (lines 82-83)
+        from backend.services import TranscriptionService
+        
+        # Create a mock that raises a generic exception in the generator
+        original_transcribe_file = TranscriptionService.transcribe_file
+        
+        def mock_transcribe_file_raising_exception(self, file_path, chunk_length):
+            """Mock that raises a generic exception"""
+            yield 'data: {"progress": 10, "message": "Starting..."}\n\n'
+            raise ValueError('Test error in generator')
         
         try:
-            # Make transcription raise a generic exception
-            mock_transcribe.side_effect = ValueError('Test error')
+            # Patch the method to raise exception
+            TranscriptionService.transcribe_file = mock_transcribe_file_raising_exception
             
             response = client.post('/transcribe', data={
                 'audio': (sample_audio_file, 'test.mp3')
@@ -301,13 +313,13 @@ class TestTranscribeEndpoint:
             assert response.status_code == 200
             assert response.mimetype == 'text/event-stream'
             
-            # Read the stream to check for error message
+            # Read the stream to check for error message (lines 82-83)
             content = b''.join(response.iter_encoded())
             content_str = content.decode('utf-8')
             assert 'error' in content_str.lower() or 'test error' in content_str.lower()
         finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            # Restore original method
+            TranscriptionService.transcribe_file = original_transcribe_file
 
     def test_cors_headers(self, client):
         """Test CORS headers are present"""
