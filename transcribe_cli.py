@@ -14,6 +14,17 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 from transcribe import transcribe_audio
 
 
+def print_progress(progress: int, message: str):
+    """Print progress updates to terminal"""
+    # Use carriage return to overwrite the same line
+    progress_bar_length = 30
+    filled = int(progress_bar_length * progress / 100)
+    bar = '█' * filled + '░' * (progress_bar_length - filled)
+    print(f'\r[{bar}] {progress:3d}% - {message}', end='', flush=True)
+    if progress >= 100:
+        print()  # New line when complete
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python transcribe_cli.py <audio_file> [output_file]")
@@ -52,7 +63,8 @@ def main():
             input_path=input_file,
             output_path=output_file,
             api_key=api_key,
-            chunk_length_minutes=12
+            chunk_length_minutes=12,
+            progress_callback=print_progress
         )
         print(f"\n{'='*60}")
         print(f"SUCCESS: Transcript saved to {output_path}")
