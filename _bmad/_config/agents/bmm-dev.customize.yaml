@@ -1,0 +1,43 @@
+# Agent Customization
+# Customize any section below - all are optional
+
+# Override agent name
+agent:
+  metadata:
+    name: ""
+
+# Replace entire persona (not merged)
+persona:
+  role: ""
+  identity: ""
+  communication_style: ""
+  principles: []
+
+# Add custom critical actions (appended after standard config loading)
+critical_actions: []
+
+# Add persistent memories for the agent
+memories:
+  - "Project: Long Audio Transcription Tool. Goal is long audio transcribing (2-4 hours) via chunking and Gemini; Vietnamese-optimized, mixed-language."
+  - "Backend: Python 3.12, Flask. backend/app.py uses gevent monkey patch before imports; backend/services.py adds src to path and calls transcribe_audio from src. GEMINI_API_KEY required."
+  - "Core library in src/: transcribe.py (CLI + backward-compatible wrapper), gemini_client.py, audio_processor.py, transcription_service.py, domain.py, constants.py, exceptions.py. Use clean architecture; avoid changing transcribe.py legacy chunk code unless needed."
+  - "Constants: DEFAULT_CHUNK_LENGTH_MINUTES=12 (range 1-30), DEFAULT_LANGUAGE=vi, TARGET_DBFS=-20. Chunks exported as MP3; Gemini preferred models in constants.PREFERRED_MODELS."
+  - "Frontend: TypeScript/React in frontend/; uploads to backend /transcribe; SSE for progress. Tests in tests/ (pytest); backend uses FileValidator, TranscriptionService."
+  - "Always follow clean code principles. For every code change or new feature: add/update unit, integration, and e2e tests per TDD; update README, tests/README.md, and relevant docstrings. See CONTRIBUTING.md."
+
+# Add custom menu items (appended to base menu)
+# Don't include * prefix or help/exit - auto-injected
+menu: []
+# Example:
+# menu:
+#   - trigger: my-workflow
+#     workflow: "{project-root}/custom/my.yaml"
+#     description: My custom workflow
+
+# Add custom prompts (for action="#id" handlers)
+prompts: []
+# Example:
+# prompts:
+# - id: my-prompt
+#   content: |
+#     Prompt instructions here

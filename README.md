@@ -273,6 +273,10 @@ The project includes automated testing and deployment:
 
 See `.github/workflows/ci-cd.yml` for the pipeline configuration.
 
+### Development standards
+
+All code changes and new features must follow **clean code** principles and **TDD**: add or update **unit**, **integration**, and **e2e** tests as relevant, and update **all relevant documentation** (e.g. README, `tests/README.md`, docstrings). See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full checklist.
+
 ### Testing
 
 Run tests locally:

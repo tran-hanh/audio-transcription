@@ -1,0 +1,26 @@
+---
+description: Clean code, TDD, and documentation standards for all code changes
+globs: **/*.py, **/*.ts, **/*.tsx, **/*.js, **/*.jsx
+alwaysApply: false
+---
+
+# Development standards (audio_transcription)
+
+When writing or modifying code in this project:
+
+1. **Clean code**
+   - Write code that is easy to maintain and understand.
+   - Use meaningful names, small focused functions, no unnecessary duplication, clear structure.
+   - Follow existing patterns and layout (src/, backend/, frontend/, tests/).
+
+2. **TDD and tests**
+   - When updating code or adding features, add or update tests following TDD practices.
+   - Include unit tests; add integration and e2e tests as relevant for the change.
+   - Ensure tests pass and coverage is maintained (see tests/README.md).
+   - Run: `pytest tests/ -v` (backend), and frontend test commands as documented.
+
+3. **Documentation**
+   - Update all relevant documentation with the change: README.md, tests/README.md, docstrings, and any API or architecture docs.
+   - Treat docs as part of the same change set—do not leave README or test docs outdated.
+
+Full details: **CONTRIBUTING.md** in the project root.

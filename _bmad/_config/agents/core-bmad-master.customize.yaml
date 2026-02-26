@@ -1,0 +1,42 @@
+# Agent Customization
+# Customize any section below - all are optional
+
+# Override agent name
+agent:
+  metadata:
+    name: ""
+
+# Replace entire persona (not merged)
+persona:
+  role: ""
+  identity: ""
+  communication_style: ""
+  principles: []
+
+# Add custom critical actions (appended after standard config loading)
+critical_actions: []
+
+# Add persistent memories for the agent
+memories:
+  - "Project is Long Audio Transcription Tool: transcribes very long audio (2-4 hours) using Google Gemini API."
+  - "Main goal: support long audio transcribing; optimized for mixed-language content (primarily Vietnamese with English)."
+  - "Stack: Python 3.12, Flask backend (gevent/gunicorn), React/TypeScript frontend, pydub/ffmpeg for audio, Gemini for transcription."
+  - "Structure: backend/ (Flask app, routes, services, validators), src/ (core library: transcribe, gemini_client, audio_processor, transcription_service, domain, constants), frontend/, tests/."
+  - "Project standards: All code must follow clean code principles (maintainable, understandable). Every code update or new feature requires adding tests (unit, integration, e2e) following TDD, and updating all relevant documentation (README, tests/README.md, docstrings). See CONTRIBUTING.md."
+
+# Add custom menu items (appended to base menu)
+# Don't include * prefix or help/exit - auto-injected
+menu: []
+# Example:
+# menu:
+#   - trigger: my-workflow
+#     workflow: "{project-root}/custom/my.yaml"
+#     description: My custom workflow
+
+# Add custom prompts (for action="#id" handlers)
+prompts: []
+# Example:
+# prompts:
+# - id: my-prompt
+#   content: |
+#     Prompt instructions here
