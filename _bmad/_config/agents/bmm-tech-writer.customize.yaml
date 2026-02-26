@@ -14,7 +14,8 @@ persona:
   principles: []
 
 # Add custom critical actions (appended after standard config loading)
-critical_actions: []
+critical_actions:
+  - "When features or code change: ensure README, tests/README.md, docstrings, and any API or architecture docs are updated as part of the same change set; never leave docs outdated."
 
 # Add persistent memories for the agent
 memories:

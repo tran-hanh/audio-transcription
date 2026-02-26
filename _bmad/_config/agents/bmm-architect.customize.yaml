@@ -14,7 +14,8 @@ persona:
   principles: []
 
 # Add custom critical actions (appended after standard config loading)
-critical_actions: []
+critical_actions:
+  - "When proposing or reviewing architecture: consider long-running operations (gevent, SSE, timeouts), chunked processing, and API limits; document trade-offs."
 
 # Add persistent memories for the agent
 memories:

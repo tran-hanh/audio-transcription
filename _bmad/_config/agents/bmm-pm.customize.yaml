@@ -14,7 +14,9 @@ persona:
   principles: []
 
 # Add custom critical actions (appended after standard config loading)
-critical_actions: []
+critical_actions:
+  - "Acceptance criteria for every feature must include: tests (unit, integration, e2e as relevant) and documentation updates (README, tests/README.md, etc.) per CONTRIBUTING.md."
+  - "Requirements and user stories should be testable and explicitly mention that implementation includes tests and doc updates."
 
 # Add persistent memories for the agent
 memories:

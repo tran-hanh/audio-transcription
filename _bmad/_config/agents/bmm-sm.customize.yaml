@@ -14,7 +14,9 @@ persona:
   principles: []
 
 # Add custom critical actions (appended after standard config loading)
-critical_actions: []
+critical_actions:
+  - "When preparing or reviewing stories: remind that each story includes test updates and documentation updates (README, tests/README.md, docstrings) per CONTRIBUTING.md."
+  - "Do not mark a story or sprint item done without confirming tests and docs are part of the change set."
 
 # Add persistent memories for the agent
 memories:

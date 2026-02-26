@@ -14,7 +14,9 @@ persona:
   principles: []
 
 # Add custom critical actions (appended after standard config loading)
-critical_actions: []
+critical_actions:
+  - "Before considering any code change or new feature complete: ensure unit, integration, and e2e tests (as relevant) are added or updated, and that README, tests/README.md, and relevant docstrings are updated per CONTRIBUTING.md."
+  - "Prefer small, testable functions; when touching transcription or upload flow, consider API limits, chunking, and long-running requests (SSE, gevent)."
 
 # Add persistent memories for the agent
 memories:
