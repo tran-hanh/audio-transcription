@@ -11,6 +11,7 @@ This module tests:
 import os
 import tempfile
 import json
+from pathlib import Path
 import pytest
 from unittest.mock import patch, MagicMock
 from backend.services import TranscriptionService, FileUploadService
@@ -897,5 +898,132 @@ class TestFileUploadService:
         with patch('os.remove', side_effect=OSError('Permission denied')):
             # Act & Assert: Should not raise, just log warning
             TranscriptionService._cleanup_temp_files(None, '/tmp/test', None)
+
+
+class TestStartAsyncTranscription:
+    """Additional tests for start_async_transcription and transcribe_audio wrapper."""
+
+    def test_start_async_transcription_requires_job_store(self, test_config, tmp_path):
+        service = TranscriptionService(test_config, job_store=None)
+        with pytest.raises(RuntimeError, match="JobStore is required"):
+            service.start_async_transcription(str(tmp_path / "audio.wav"), 12, "job-1")
+
+    @patch('backend.services.transcribe_audio')
+    def test_start_async_transcription_invalid_file_size_sets_failed_job(
+        self, mock_transcribe, test_config, tmp_path
+    ):
+        # Arrange: create service with a mocked JobStore
+        mock_job_store = MagicMock()
+        service = TranscriptionService(test_config, job_store=mock_job_store)
+
+        # Create a fake file path
+        audio_path = str(tmp_path / "too_big.wav")
+        Path(audio_path).write_bytes(b'x' * 10)
+
+        # Force validator to report file too large
+        service.validator.validate_file_size = MagicMock(return_value=(False, "File too large"))
+
+        # Patch threading.Thread so we can run the target synchronously
+        with patch('threading.Thread') as mock_thread_cls:
+            def run_immediately(target, daemon):
+                target()
+                thread = MagicMock()
+                thread.start = lambda: None
+                return thread
+
+            mock_thread_cls.side_effect = lambda target, daemon=True: run_immediately(target, daemon)
+
+            service.start_async_transcription(audio_path, 12, "job-xyz")
+
+        # Should have marked job as failed with the validator message
+        mock_job_store.update.assert_any_call(
+            "job-xyz",
+            status="failed",
+            progress=0,
+            message="File too large",
+            error="File too large",
+        )
+        mock_transcribe.assert_not_called()
+
+    @patch('backend.services.transcribe_audio')
+    def test_start_async_transcription_success_updates_job(
+        self, mock_transcribe, test_config, tmp_path
+    ):
+        mock_job_store = MagicMock()
+        service = TranscriptionService(test_config, job_store=mock_job_store)
+
+        audio_path = str(tmp_path / "ok.wav")
+        Path(audio_path).write_bytes(b'audio-bytes')
+
+        # Validator returns valid size and normalized chunk length
+        service.validator.validate_file_size = MagicMock(return_value=(True, ""))
+        service.validator.validate_chunk_length = MagicMock(return_value=12)
+
+        # Create a temp transcript file that transcribe_audio will "return"
+        transcript_path = str(tmp_path / "transcript.txt")
+        Path(transcript_path).write_text("Hello world")
+        mock_transcribe.return_value = transcript_path
+
+        with patch('threading.Thread') as mock_thread_cls:
+            def run_immediately(target, daemon):
+                target()
+                t = MagicMock()
+                t.start = lambda: None
+                return t
+
+            mock_thread_cls.side_effect = lambda target, daemon=True: run_immediately(target, daemon)
+
+            service.start_async_transcription(audio_path, 12, "job-abc")
+
+        # Should have updated job as completed with transcript contents
+        mock_job_store.update.assert_any_call(
+            "job-abc",
+            status="completed",
+            progress=100,
+            message="Transcription complete!",
+            transcript="Hello world",
+        )
+        # And progress callback should have at least set initial progress
+        mock_job_store.update.assert_any_call(
+            "job-abc",
+            progress=5,
+            message="Starting transcription...",
+        )
+
+    @patch('backend.services.transcribe_audio')
+    def test_start_async_transcription_missing_output_marks_failed(
+        self, mock_transcribe, test_config, tmp_path
+    ):
+        mock_job_store = MagicMock()
+        service = TranscriptionService(test_config, job_store=mock_job_store)
+
+        audio_path = str(tmp_path / "ok.wav")
+        Path(audio_path).write_bytes(b'audio-bytes')
+
+        service.validator.validate_file_size = MagicMock(return_value=(True, ""))
+        service.validator.validate_chunk_length = MagicMock(return_value=12)
+
+        # Return a path that does not exist
+        missing_path = str(tmp_path / "missing.txt")
+        mock_transcribe.return_value = missing_path
+
+        with patch('threading.Thread') as mock_thread_cls:
+            def run_immediately(target, daemon):
+                target()
+                t = MagicMock()
+                t.start = lambda: None
+                return t
+
+            mock_thread_cls.side_effect = lambda target, daemon=True: run_immediately(target, daemon)
+
+            service.start_async_transcription(audio_path, 12, "job-missing")
+
+        mock_job_store.update.assert_any_call(
+            "job-missing",
+            status="failed",
+            progress=95,
+            message="Transcript file not found",
+            error="Transcript file not found",
+        )
 
 

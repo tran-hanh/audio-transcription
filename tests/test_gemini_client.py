@@ -41,11 +41,44 @@ class TestGeminiClient:
     @patch('src.gemini_client.genai')
     def test_init_model_initialization_failure(self, mock_genai):
         """Test model initialization failure"""
-        mock_genai.list_models.side_effect = Exception("API error")
+        mock_genai.list_models.side_effect = Exception("API error from backend")
         mock_genai.GenerativeModel.side_effect = Exception("Model error")
         
         with pytest.raises(ModelInitializationError):
             GeminiClient(api_key="test-api-key")
+
+    @patch('src.gemini_client.genai')
+    def test_initialize_model_prefers_fallback_available_model(self, mock_genai):
+        """When preferred models fail, falls back to first available model."""
+        # No preferred model in available list
+        custom_model = MagicMock()
+        custom_model.name = "models/custom-audio-model"
+        custom_model.supported_generation_methods = ["generateContent"]
+        mock_genai.list_models.return_value = [custom_model]
+        # First attempt using preferred models raises, fallback should use available model.
+        def generative_model_side_effect(model_name, *args, **kwargs):
+            if model_name in ["gemini-3-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]:
+                raise ValueError("Bad preferred model")
+            return MagicMock()
+
+        mock_genai.GenerativeModel.side_effect = generative_model_side_effect
+
+        client = GeminiClient(api_key="test-api-key")
+        # The first non-preferred available model should be used
+        chosen_model_name = mock_genai.GenerativeModel.call_args[0][0]
+        assert chosen_model_name == "custom-audio-model"
+        assert client.model is not None
+
+    @patch('src.gemini_client.genai')
+    def test_initialize_model_no_available_models_tries_fallback_then_raises(self, mock_genai):
+        """When no models can be initialized, raise ModelInitializationError with guidance."""
+        mock_genai.list_models.return_value = []
+        mock_genai.GenerativeModel.side_effect = Exception("bad model")
+
+        with pytest.raises(ModelInitializationError) as exc:
+            GeminiClient(api_key="test-api-key")
+
+        assert "Could not initialize a Gemini model" in str(exc.value)
     
     @patch('src.gemini_client.genai')
     def test_transcribe_chunk_success(self, mock_genai):
@@ -146,6 +179,34 @@ class TestGeminiClient:
         assert isinstance(result, TranscriptChunk)
         assert result.is_error
         assert "processing failed" in (result.error_message or "").lower()
+
+    @patch('src.gemini_client.genai')
+    def test_transcribe_chunk_generic_exception_returns_error_chunk(self, mock_genai):
+        """Non-safety exceptions during transcription are wrapped into an error TranscriptChunk."""
+        mock_model = MagicMock()
+        mock_genai.GenerativeModel.return_value = mock_model
+        mock_genai.list_models.return_value = [
+            MagicMock(name="models/gemini-1.5-flash", supported_generation_methods=["generateContent"])
+        ]
+
+        # Upload returns ACTIVE file, but generate_content raises
+        mock_file = MagicMock()
+        mock_file.state.name = "ACTIVE"
+        mock_genai.upload_file.return_value = mock_file
+
+        mock_model.generate_content.side_effect = RuntimeError("boom")
+
+        client = GeminiClient(api_key="test-api-key")
+
+        result = client.transcribe_chunk(
+            chunk_path="/path/to/chunk.mp3",
+            chunk_number=2,
+            total_chunks=3,
+            language="vi",
+        )
+
+        assert result.is_error
+        assert "Failed to transcribe chunk 2" in (result.error_message or "")
     
     @patch('src.gemini_client.genai')
     def test_extract_text_from_response(self, mock_genai):
