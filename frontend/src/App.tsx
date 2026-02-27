@@ -57,7 +57,7 @@ export const App: React.FC = () => {
 
       {state === AppState.IDLE && (
         <div className="drop-zone-section">
-          <DropZone onFileSelect={handleFileSelect} disabled={false} />
+          <DropZone onFileSelect={handleFileSelect} disabled={false} selectedFile={selectedFile} />
         </div>
       )}
 
@@ -79,7 +79,7 @@ export const App: React.FC = () => {
 
       {state === AppState.ERROR && (
         <div className="drop-zone-section">
-          <DropZone onFileSelect={handleFileSelect} disabled={false} />
+          <DropZone onFileSelect={handleFileSelect} disabled={false} selectedFile={selectedFile} />
         </div>
       )}
     </div>
