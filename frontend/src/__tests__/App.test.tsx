@@ -69,8 +69,11 @@ describe('App', () => {
       transcript: '',
       error: '',
       progress: { progress: 50, message: 'Processing...' },
+      startTime: Date.now(),
+      estimatedTimeRemaining: '2m 30s',
       handleFileSelect: mockHandleFileSelect,
       startTranscription: mockStartTranscription,
+      cancelTranscription: vi.fn(),
       reset: mockReset,
     })
 
@@ -89,8 +92,11 @@ describe('App', () => {
       transcript: 'Test transcript content',
       error: '',
       progress: { progress: 100, message: 'Complete' },
+      startTime: null,
+      estimatedTimeRemaining: null,
       handleFileSelect: mockHandleFileSelect,
       startTranscription: mockStartTranscription,
+      cancelTranscription: vi.fn(),
       reset: mockReset,
     })
 
@@ -108,8 +114,11 @@ describe('App', () => {
       transcript: '',
       error: 'Test error message',
       progress: { progress: 0, message: '' },
+      startTime: null,
+      estimatedTimeRemaining: null,
       handleFileSelect: mockHandleFileSelect,
       startTranscription: mockStartTranscription,
+      cancelTranscription: vi.fn(),
       reset: mockReset,
     })
 
@@ -128,8 +137,11 @@ describe('App', () => {
       transcript: '',
       error: '',
       progress: { progress: 50, message: 'Processing...' },
+      startTime: Date.now(),
+      estimatedTimeRemaining: '2m 30s',
       handleFileSelect: mockHandleFileSelect,
       startTranscription: mockStartTranscription,
+      cancelTranscription: vi.fn(),
       reset: mockReset,
     })
 
@@ -148,8 +160,11 @@ describe('App', () => {
       transcript: 'Test transcript',
       error: '',
       progress: { progress: 100, message: 'Complete' },
+      startTime: null,
+      estimatedTimeRemaining: null,
       handleFileSelect: mockHandleFileSelect,
       startTranscription: mockStartTranscription,
+      cancelTranscription: vi.fn(),
       reset: mockReset,
     })
 
@@ -167,8 +182,11 @@ describe('App', () => {
       transcript: '',
       error: '',
       progress: { progress: 50, message: '' },
+      startTime: Date.now(),
+      estimatedTimeRemaining: '2m 30s',
       handleFileSelect: mockHandleFileSelect,
       startTranscription: mockStartTranscription,
+      cancelTranscription: vi.fn(),
       reset: mockReset,
     })
 

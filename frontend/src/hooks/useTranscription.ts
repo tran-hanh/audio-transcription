@@ -16,6 +16,7 @@ export function useTranscription(service: TranscriptionService) {
     progress: 0,
     message: '',
   });
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   const handleFileSelect = useCallback((file: File) => {
     const validation = validateAudioFile(file);
@@ -37,6 +38,7 @@ export function useTranscription(service: TranscriptionService) {
       setState(AppState.PROCESSING);
       setError('');
       setProgress({ progress: 0, message: 'Uploading...' });
+      setStartTime(Date.now());
 
       try {
         const result = await service.transcribe(
@@ -49,22 +51,69 @@ export function useTranscription(service: TranscriptionService) {
 
         setTranscript(result);
         setState(AppState.RESULTS);
+        setStartTime(null);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'An error occurred';
-        setError(errorMessage);
-        setState(AppState.ERROR);
+        if (errorMessage === 'Transcription cancelled') {
+          setState(AppState.IDLE);
+          setError('');
+          setProgress({ progress: 0, message: '' });
+        } else {
+          setError(errorMessage);
+          setState(AppState.ERROR);
+        }
+        setStartTime(null);
       }
     },
     [selectedFile, service]
   );
 
+  const cancelTranscription = useCallback(() => {
+    service.cancel();
+    setState(AppState.IDLE);
+    setError('');
+    setProgress({ progress: 0, message: '' });
+    setStartTime(null);
+  }, [service]);
+
   const reset = useCallback(() => {
+    service.cancel();
     setState(AppState.IDLE);
     setSelectedFile(null);
     setTranscript('');
     setError('');
     setProgress({ progress: 0, message: '' });
-  }, []);
+    setStartTime(null);
+  }, [service]);
+
+  // Calculate estimated time remaining
+  const getEstimatedTimeRemaining = useCallback((): string | null => {
+    if (!startTime || progress.progress <= 0 || progress.progress >= 100) {
+      return null;
+    }
+
+    const elapsed = Date.now() - startTime;
+    const progressDecimal = progress.progress / 100;
+    
+    if (progressDecimal === 0) {
+      return null;
+    }
+
+    const estimatedTotal = elapsed / progressDecimal;
+    const remaining = estimatedTotal - elapsed;
+
+    if (remaining < 0 || !isFinite(remaining)) {
+      return null;
+    }
+
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  }, [startTime, progress.progress]);
 
   return {
     state,
@@ -72,8 +121,11 @@ export function useTranscription(service: TranscriptionService) {
     transcript,
     error,
     progress,
+    startTime,
+    estimatedTimeRemaining: getEstimatedTimeRemaining(),
     handleFileSelect,
     startTranscription,
+    cancelTranscription,
     reset,
   };
 }

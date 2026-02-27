@@ -74,9 +74,12 @@ describe('TranscriptionService', () => {
       expect(result).toBe('Test transcript')
       expect(globalThis.fetch).toHaveBeenCalledWith(
         `${mockBaseUrl}/transcribe`,
-        expect.objectContaining({ method: 'POST', body: expect.any(FormData) })
+        expect.objectContaining({ method: 'POST', body: expect.any(FormData), signal: expect.any(AbortSignal) })
       )
-      expect(globalThis.fetch).toHaveBeenCalledWith(`${mockBaseUrl}/transcribe/status/${jobId}`)
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        `${mockBaseUrl}/transcribe/status/${jobId}`,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
     })
 
     it('should handle server errors', async () => {

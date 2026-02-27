@@ -14,9 +14,17 @@ function delay(ms: number): Promise<void> {
 
 export class TranscriptionService {
   private baseUrl: string;
+  private abortController: AbortController | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  cancel(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
   }
 
   async transcribe(
@@ -24,6 +32,9 @@ export class TranscriptionService {
     chunkLength: number,
     onProgress: (progress: TranscriptionProgress) => void
   ): Promise<string> {
+    // Create new abort controller for this transcription
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
     const formData = new FormData();
     formData.append('audio', file);
     formData.append('chunk_length', chunkLength.toString());
@@ -33,8 +44,11 @@ export class TranscriptionService {
     let response: Response | null = null;
 
     for (let attempt = 0; attempt <= COLD_START_RETRIES; attempt++) {
+      if (signal.aborted) {
+        throw new Error('Transcription cancelled');
+      }
       try {
-        response = await fetch(url, { method: 'POST', body: formData });
+        response = await fetch(url, { method: 'POST', body: formData, signal });
         if (response.ok) break;
         if (response.status === 502 || response.status === 503) {
           lastError = new Error('Server is starting or temporarily unavailable. Please wait.');
@@ -91,10 +105,13 @@ export class TranscriptionService {
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
+        if (signal.aborted) {
+          throw new Error('Transcription cancelled');
+        }
         if (Date.now() - startedAt > maxWaitMs) {
           throw new Error('Transcription is taking longer than expected. Please try again with a shorter file.');
         }
-        const statusResponse = await fetch(statusUrl);
+        const statusResponse = await fetch(statusUrl, { signal });
         if (!statusResponse.ok) {
           throw new Error(`Status check failed: ${statusResponse.status}`);
         }
@@ -134,6 +151,10 @@ export class TranscriptionService {
     }
 
     throw new Error('Unexpected response from server.');
+  }
+
+  isCancelled(): boolean {
+    return this.abortController?.signal.aborted ?? false;
   }
 
   async healthCheck(): Promise<boolean> {

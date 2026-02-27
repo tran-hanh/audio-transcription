@@ -103,17 +103,39 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileSelect, disabled = fal
       </label>
       {selectedFile && (
         <div className="file-info" role="status" aria-live="polite">
-          <div className="file-info-row">
-            <span className="file-info-label">Selected file:</span>
-            <span className="file-info-value" aria-label={`File name: ${selectedFile.name}`}>
-              {selectedFile.name}
-            </span>
+          <div className="file-info-header">
+            <svg
+              className="file-info-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+              <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+            <span className="file-info-title">Selected File</span>
           </div>
-          <div className="file-info-row">
-            <span className="file-info-label">File size:</span>
-            <span className="file-info-value" aria-label={`File size: ${formatFileSize(selectedFile.size)}`}>
-              {formatFileSize(selectedFile.size)}
-            </span>
+          <div className="file-info-content">
+            <div className="file-info-row">
+              <span className="file-info-label">Name:</span>
+              <span className="file-info-value" aria-label={`File name: ${selectedFile.name}`} title={selectedFile.name}>
+                {selectedFile.name}
+              </span>
+            </div>
+            <div className="file-info-row">
+              <span className="file-info-label">Size:</span>
+              <span className="file-info-value" aria-label={`File size: ${formatFileSize(selectedFile.size)}`}>
+                {formatFileSize(selectedFile.size)}
+              </span>
+            </div>
+            <div className="file-info-row">
+              <span className="file-info-label">Type:</span>
+              <span className="file-info-value" aria-label={`File type: ${selectedFile.type || 'Unknown'}`}>
+                {selectedFile.type || selectedFile.name.split('.').pop()?.toUpperCase() || 'Unknown'}
+              </span>
+            </div>
           </div>
         </div>
       )}

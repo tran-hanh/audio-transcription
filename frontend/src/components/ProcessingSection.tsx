@@ -8,12 +8,16 @@ interface ProcessingSectionProps {
   fileName: string;
   progress: number;
   message: string;
+  estimatedTimeRemaining?: string | null;
+  onCancel?: () => void;
 }
 
 export const ProcessingSection: React.FC<ProcessingSectionProps> = ({
   fileName,
   progress,
   message,
+  estimatedTimeRemaining,
+  onCancel,
 }) => {
   return (
     <div className="processing-section" role="status" aria-live="polite" aria-atomic="true">
@@ -35,6 +39,19 @@ export const ProcessingSection: React.FC<ProcessingSectionProps> = ({
         </span>
       </div>
       <div className="progress-container">
+        <div className="progress-header">
+          <span className="progress-label">Progress</span>
+          <div className="progress-stats">
+            {estimatedTimeRemaining && (
+              <span className="estimated-time" aria-label={`Estimated time remaining: ${estimatedTimeRemaining}`}>
+                ~{estimatedTimeRemaining}
+              </span>
+            )}
+            <span className="progress-percentage" aria-hidden="true">
+              {progress > 0 ? `${progress}%` : progress === 0 ? '0%' : '—'}
+            </span>
+          </div>
+        </div>
         <div
           className={`progress-bar ${progress === 0 ? 'indeterminate' : ''}`}
           role="progressbar"
@@ -48,15 +65,25 @@ export const ProcessingSection: React.FC<ProcessingSectionProps> = ({
             style={{ width: progress > 0 ? `${progress}%` : '100%' }}
           />
         </div>
-        {progress > 0 && (
-          <div className="progress-percentage" aria-hidden="true">
-            {progress}%
-          </div>
+      </div>
+      <div className="status-footer">
+        <p className="status-text" aria-label={`Status: ${message}`}>
+          {message}
+        </p>
+        {onCancel && (
+          <button
+            className="btn-cancel"
+            onClick={onCancel}
+            aria-label="Cancel transcription"
+          >
+            <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Cancel
+          </button>
         )}
       </div>
-      <p className="status-text" aria-label={`Status: ${message}`}>
-        {message}
-      </p>
     </div>
   );
 };

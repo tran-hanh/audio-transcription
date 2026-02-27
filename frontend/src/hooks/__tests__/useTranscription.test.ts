@@ -25,6 +25,8 @@ describe('useTranscription', () => {
   beforeEach(() => {
     mockService = {
       transcribe: vi.fn(),
+      cancel: vi.fn(),
+      isCancelled: vi.fn().mockReturnValue(false),
     } as unknown as TranscriptionService
     vi.clearAllMocks()
   })

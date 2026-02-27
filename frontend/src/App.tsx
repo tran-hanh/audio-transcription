@@ -10,6 +10,7 @@ import { DropZone } from './components/DropZone';
 import { ProcessingSection } from './components/ProcessingSection';
 import { OutputSection } from './components/OutputSection';
 import { ErrorAlert } from './components/ErrorAlert';
+import { ThemeToggle } from './components/ThemeToggle';
 import { API_BASE_URL } from './config/api';
 import './App.css';
 
@@ -22,8 +23,10 @@ export const App: React.FC = () => {
     transcript,
     error,
     progress,
+    estimatedTimeRemaining,
     handleFileSelect,
     startTranscription,
+    cancelTranscription,
     reset,
   } = useTranscription(transcriptionService);
 
@@ -46,6 +49,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="main-container">
+      <ThemeToggle />
       <header className="header-section">
         <h1>Audio Scribe</h1>
         <p className="subtitle">
@@ -66,6 +70,8 @@ export const App: React.FC = () => {
           fileName={selectedFile.name}
           progress={progress.progress}
           message={progress.message || 'Processing...'}
+          estimatedTimeRemaining={estimatedTimeRemaining}
+          onCancel={cancelTranscription}
         />
       )}
 
