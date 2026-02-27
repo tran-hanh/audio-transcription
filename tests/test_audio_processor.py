@@ -28,7 +28,8 @@ class TestAudioProcessor:
         assert processor.chunk_length_ms == chunk_length_ms
     
     @patch('src.audio_processor.AudioSegment')
-    def test_load_audio_success(self, mock_audio_segment):
+    @patch('src.audio_processor.os.path.exists', return_value=True)
+    def test_load_audio_success(self, mock_exists, mock_audio_segment):
         """Test successful audio file loading"""
         # Setup
         mock_segment = MagicMock()
@@ -56,7 +57,8 @@ class TestAudioProcessor:
         assert "not found" in str(exc_info.value).lower()
     
     @patch('src.audio_processor.AudioSegment')
-    def test_load_audio_invalid_format(self, mock_audio_segment):
+    @patch('src.audio_processor.os.path.exists', return_value=True)
+    def test_load_audio_invalid_format(self, mock_exists, mock_audio_segment):
         """Test loading invalid audio format"""
         mock_audio_segment.from_file.side_effect = Exception("Invalid format")
         

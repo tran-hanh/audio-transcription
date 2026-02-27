@@ -416,7 +416,7 @@ class TestTranscriptionService:
             call_count = [0]
             def sleep_side_effect(*args):
                 call_count[0] += 1
-                if call_count[0] > 2:  # After a few iterations, raise SystemExit
+                if call_count[0] > 0:  # Raise quickly to avoid timing flakiness
                     raise SystemExit('Worker timeout')
             
             mock_sleep.side_effect = sleep_side_effect

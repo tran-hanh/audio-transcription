@@ -4,6 +4,8 @@ Main transcription service orchestrating audio processing and API calls
 
 import os
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Optional, Callable, List
 
@@ -94,8 +96,45 @@ class TranscriptionService:
         # Step 1: Load and analyze audio
         if progress_callback:
             progress_callback(10, "Starting audio chunking...")
-        
-        audio_file = self.audio_processor.load_audio(input_path)
+        if progress_callback:
+            progress_callback(11, "Loading audio file... (this can take a few minutes for long files)")
+
+        audio_file: Optional[AudioFile] = None
+        load_error: Optional[BaseException] = None
+        load_done = threading.Event()
+
+        def _load() -> None:
+            nonlocal audio_file, load_error
+            try:
+                audio_file = self.audio_processor.load_audio(input_path)
+            except BaseException as e:
+                load_error = e
+            finally:
+                load_done.set()
+
+        t = threading.Thread(target=_load, daemon=True)
+        t.start()
+
+        started_at = time.time()
+        last_heartbeat = started_at
+        heartbeat_every_s = 10
+
+        while not load_done.wait(timeout=1):
+            if not progress_callback:
+                continue
+            now = time.time()
+            if now - last_heartbeat >= heartbeat_every_s:
+                elapsed_s = int(now - started_at)
+                progress_callback(11, f"Loading audio file... ({elapsed_s}s elapsed)")
+                last_heartbeat = now
+
+        if load_error is not None:
+            raise load_error
+        if audio_file is None:
+            raise AudioProcessingError("Failed to load audio file (unknown error).")
+
+        if progress_callback:
+            progress_callback(12, "Audio loaded, splitting into chunks...")
         
         # Step 2: Chunk audio
         chunks, temp_dir = self.audio_processor.chunk_audio(

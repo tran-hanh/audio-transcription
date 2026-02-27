@@ -30,6 +30,8 @@ describe('API Configuration', () => {
     expect(API_ENDPOINTS).toBeDefined()
     expect(API_ENDPOINTS.HEALTH).toBe('/health')
     expect(API_ENDPOINTS.TRANSCRIBE).toBe('/transcribe')
+    expect(typeof API_ENDPOINTS.TRANSCRIBE_STATUS).toBe('function')
+    expect(API_ENDPOINTS.TRANSCRIBE_STATUS('abc-123')).toBe('/transcribe/status/abc-123')
   })
 
   it('should return localhost URL for localhost', async () => {

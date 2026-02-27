@@ -23,6 +23,7 @@ memories:
   - "Stack: Python 3.12, Flask backend (gevent/gunicorn), React/TypeScript frontend, pydub/ffmpeg for audio, Gemini for transcription."
   - "Structure: backend/ (Flask app, routes, services, validators), src/ (core library: transcribe, gemini_client, audio_processor, transcription_service, domain, constants), frontend/, tests/."
   - "Project standards: All code must follow clean code principles (maintainable, understandable). Every code update or new feature requires adding tests (unit, integration, e2e) following TDD, and updating all relevant documentation (README, tests/README.md, docstrings). See CONTRIBUTING.md."
+  - "Agents work together in two ways: (1) Sequential handoffs—run BMM phases in order (Analysis→Planning→Solutioning→Implementation); use /bmad-help to see next step. (2) Party Mode—/bmad-party-mode or Master menu [PM] for multi-agent discussion. Guide users to docs/AGENTS-AND-WORKFLOWS.md for full overview."
 
 # Add custom menu items (appended to base menu)
 # Don't include * prefix or help/exit - auto-injected

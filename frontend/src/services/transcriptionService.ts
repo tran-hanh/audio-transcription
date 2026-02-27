@@ -5,6 +5,13 @@
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
 import { TranscriptionProgress, TranscriptionResponse } from '../types';
 
+const COLD_START_RETRIES = 3;
+const COLD_START_DELAYS_MS = [3000, 6000, 10000];
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class TranscriptionService {
   private baseUrl: string;
 
@@ -21,96 +28,90 @@ export class TranscriptionService {
     formData.append('audio', file);
     formData.append('chunk_length', chunkLength.toString());
 
-    const response = await fetch(`${this.baseUrl}${API_ENDPOINTS.TRANSCRIBE}`, {
-      method: 'POST',
-      body: formData,
-    });
+    const url = `${this.baseUrl}${API_ENDPOINTS.TRANSCRIBE}`;
+    let lastError: Error | null = null;
+    let response: Response | null = null;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
-      throw new Error(errorData.error || `Server error: ${response.status}`);
-    }
-
-    // Handle streaming response
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('No response body');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let transcript: string | undefined = undefined;
-    let hasError = false;
-    let lastDataTime = Date.now();
-    // Increased timeout to handle long transcriptions (15-20 minutes)
-    // Backend sends heartbeats every 10 seconds, so 5 minutes without data indicates a real problem
-    const HEARTBEAT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes without data = timeout
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // Check for timeout
-      const now = Date.now();
-      if (now - lastDataTime > HEARTBEAT_TIMEOUT_MS) {
-        throw new Error('Connection timeout. The transcription is taking longer than expected. Please try again.');
-      }
-
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      // Update last data time
-      lastDataTime = Date.now();
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data: TranscriptionResponse = JSON.parse(line.slice(6));
-            
-            // Update last data time when we receive any data
-            lastDataTime = Date.now();
-            
-            if (data.progress !== undefined && data.message) {
-              onProgress({ progress: data.progress, message: data.message });
-            }
-            
-            if (data.transcript !== undefined) {
-              transcript = data.transcript;
-            }
-            
-            if (data.error) {
-              hasError = true;
-              throw new Error(data.error);
-            }
-          } catch (e) {
-            // Ignore JSON parse errors for incomplete chunks
-            if (e instanceof Error) {
-              if (e.message.includes('JSON')) {
-                // Continue parsing other lines
-                continue;
-              }
-              // Re-throw actual errors
-              throw e;
-            }
+    for (let attempt = 0; attempt <= COLD_START_RETRIES; attempt++) {
+      try {
+        response = await fetch(url, { method: 'POST', body: formData });
+        if (response.ok) break;
+        if (response.status === 502 || response.status === 503) {
+          lastError = new Error('Server is starting or temporarily unavailable. Please wait.');
+          if (attempt < COLD_START_RETRIES) {
+            onProgress({
+              progress: 0,
+              message: `Server waking up... (retry ${attempt + 1}/${COLD_START_RETRIES + 1})`,
+            });
+            await delay(COLD_START_DELAYS_MS[attempt]);
+            continue;
           }
         }
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      } catch (e) {
+        const isNetworkError =
+          e instanceof TypeError && (e.message === 'Failed to fetch' || e.message.includes('NetworkError'));
+        if (isNetworkError && attempt < COLD_START_RETRIES) {
+          lastError = e as Error;
+          onProgress({
+            progress: 0,
+            message: `Connecting to server... (retry ${attempt + 1}/${COLD_START_RETRIES + 1})`,
+          });
+          await delay(COLD_START_DELAYS_MS[attempt]);
+          continue;
+        }
+        throw e;
       }
     }
 
-    // If we got an error, it should have been thrown above
-    if (hasError) {
-      throw new Error('Transcription failed');
+    if (!response || !response.ok) {
+      throw lastError || new Error('Server error');
     }
 
-    // Check if we received a transcript (even if empty, we should have received something)
-    // The transcript might be empty if the audio had no speech
-    if (transcript === undefined || transcript === null) {
-      throw new Error('No transcript received from server. The transcription may have failed.');
+    // Async flow: 202 + job_id -> poll status until completed/failed
+    if (response.status === 202) {
+      const body = await response.json();
+      const jobId = body.job_id as string;
+      if (!jobId) {
+        throw new Error('Server did not return a job id.');
+      }
+      const statusUrl = `${this.baseUrl}${API_ENDPOINTS.TRANSCRIBE_STATUS(jobId)}`;
+      const pollIntervalMs = 1500;
+      const maxWaitMs = 30 * 60 * 1000; // 30 minutes
+      const startedAt = Date.now();
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        if (Date.now() - startedAt > maxWaitMs) {
+          throw new Error('Transcription is taking longer than expected. Please try again with a shorter file.');
+        }
+        const statusResponse = await fetch(statusUrl);
+        if (!statusResponse.ok) {
+          throw new Error(`Status check failed: ${statusResponse.status}`);
+        }
+        const job = (await statusResponse.json()) as {
+          status: string;
+          progress: number;
+          message: string;
+          transcript?: string;
+          error?: string;
+        };
+        onProgress({ progress: job.progress, message: job.message || 'Processing...' });
+        if (job.status === 'completed') {
+          if (job.transcript === undefined || job.transcript === null) {
+            throw new Error('No transcript received from server.');
+          }
+          return job.transcript;
+        }
+        if (job.status === 'failed') {
+          throw new Error(job.error || 'Transcription failed.');
+        }
+        await delay(pollIntervalMs);
+      }
     }
 
-    return transcript;
+    throw new Error('Unexpected response from server.');
   }
 
   async healthCheck(): Promise<boolean> {

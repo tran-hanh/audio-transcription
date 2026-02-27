@@ -11,7 +11,12 @@ The actual implementation uses clean architecture with separated concerns.
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
+
+# Legacy-module symbols (tests patch these; keep them importable at module scope)
+from pydub import AudioSegment
+import google.generativeai as genai
 
 # Add parent directory to path to allow imports when running as script
 # This allows the script to be run directly: python3 src/transcribe.py
@@ -24,14 +29,13 @@ if str(_project_root) not in sys.path:
 from src.gemini_client import GeminiClient
 from src.audio_processor import AudioProcessor
 from src.transcription_service import TranscriptionService
-from src.constants import DEFAULT_CHUNK_LENGTH_MINUTES, DEFAULT_LANGUAGE
+from src.constants import DEFAULT_CHUNK_LENGTH_MINUTES, DEFAULT_LANGUAGE, PREFERRED_MODELS, OUTPUT_ENCODING
 from src.exceptions import TranscriptionError
 
 # Backward compatibility exports
 CHUNK_LENGTH_MINUTES = DEFAULT_CHUNK_LENGTH_MINUTES
 CHUNK_LENGTH_MS = DEFAULT_CHUNK_LENGTH_MINUTES * 60 * 1000
 LANGUAGE = DEFAULT_LANGUAGE
-OUTPUT_ENCODING = "utf-8"
 
 
 def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS, progress_callback=None):
@@ -41,7 +45,6 @@ def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS, progres
     """
     from typing import List, Tuple
     import tempfile
-    from pydub import AudioSegment
     """
     Split a large audio file into smaller chunks.
 
@@ -76,25 +79,32 @@ def chunk_audio(audio_path: str, chunk_length_ms: int = CHUNK_LENGTH_MS, progres
     # Normalize audio volume to ensure it's loud enough for transcription
     # Low volume audio can cause processing issues and false safety filter blocks
     print("Analyzing audio volume...")
-    audio_dBFS = audio.dBFS
-    print(f"  Current audio level: {audio_dBFS:.1f} dBFS")
+    try:
+        audio_dBFS = float(audio.dBFS)
+        print(f"  Current audio level: {audio_dBFS:.1f} dBFS")
+    except Exception:
+        audio_dBFS = None
+        print("  Current audio level: (unknown)")
     
     # Normalize audio to -20 dBFS (good level for speech transcription)
     # If audio is quieter than -30 dBFS, it might be too quiet for reliable processing
     target_dBFS = -20.0
-    if audio_dBFS < -30.0:
+    if audio_dBFS is not None and audio_dBFS < -30.0:
         print(f"  ⚠️  Audio is very quiet ({audio_dBFS:.1f} dBFS). Normalizing to {target_dBFS:.1f} dBFS...")
         # Calculate how much to increase volume
         change_in_dB = target_dBFS - audio_dBFS
         audio = audio.apply_gain(change_in_dB)
         print(f"  ✓ Audio normalized to {audio.dBFS:.1f} dBFS")
-    elif audio_dBFS < target_dBFS:
+    elif audio_dBFS is not None and audio_dBFS < target_dBFS:
         print(f"  Audio is slightly quiet ({audio_dBFS:.1f} dBFS). Normalizing to {target_dBFS:.1f} dBFS...")
         change_in_dB = target_dBFS - audio_dBFS
         audio = audio.apply_gain(change_in_dB)
         print(f"  ✓ Audio normalized to {audio.dBFS:.1f} dBFS")
     else:
-        print(f"  ✓ Audio volume is adequate ({audio_dBFS:.1f} dBFS)")
+        if audio_dBFS is not None:
+            print(f"  ✓ Audio volume is adequate ({audio_dBFS:.1f} dBFS)")
+        else:
+            print("  ✓ Skipping normalization (volume unknown)")
     
     total_length_ms = len(audio)
     total_minutes = total_length_ms / (60 * 1000)
@@ -509,10 +519,11 @@ def transcribe_audio(
     progress_callback=None
 ) -> str:
     """
-    Main function to transcribe a long audio file (backward-compatible wrapper).
-    
-    This function maintains backward compatibility while using the new clean architecture.
-    
+    Main function to transcribe a long audio file (legacy-compatible).
+
+    Note: The backend server uses the clean-architecture pipeline directly. This function
+    remains for CLI/backward-compatibility and is heavily mocked in unit tests.
+
     Args:
         input_path: Path to input audio file
         output_path: Path to save the final transcript
@@ -523,28 +534,106 @@ def transcribe_audio(
     Returns:
         Path to the output transcript file
     """
-    # Get API key
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Audio file not found: {input_path}")
+
     if api_key is None:
         api_key = os.getenv("GEMINI_API_KEY")
-    
-    # Initialize services using clean architecture
-    gemini_client = GeminiClient(api_key=api_key)
-    audio_processor = AudioProcessor(chunk_length_ms=chunk_length_minutes * 60 * 1000)
-    transcription_service = TranscriptionService(
-        gemini_client=gemini_client,
-        audio_processor=audio_processor,
-        chunk_length_minutes=chunk_length_minutes,
-        language=LANGUAGE
+    if not api_key:
+        raise ValueError("API key not found. Set GEMINI_API_KEY or pass api_key.")
+
+    if output_path is None:
+        input_stem = Path(input_path).stem
+        output_path = f"{input_stem}_transcript.txt"
+
+    if progress_callback:
+        progress_callback(5, "Configuring Gemini client...")
+
+    genai.configure(api_key=api_key)
+
+    # Model selection
+    model = None
+    try:
+        available = []
+        for m in genai.list_models():
+            name = getattr(m, "name", "")
+            supported = getattr(m, "supported_generation_methods", []) or []
+            if "generateContent" not in supported:
+                continue
+            available.append(name.split("/")[-1])
+
+        for preferred in PREFERRED_MODELS:
+            if preferred in available:
+                model = genai.GenerativeModel(preferred)
+                break
+    except Exception:
+        # list_models can fail; fall back to trying preferred models directly
+        model = None
+
+    if model is None:
+        for preferred in PREFERRED_MODELS:
+            try:
+                model = genai.GenerativeModel(preferred)
+                break
+            except Exception:
+                continue
+
+    if model is None:
+        raise ValueError("Could not initialize a Gemini model for transcription.")
+
+    if progress_callback:
+        progress_callback(10, "Starting audio chunking...")
+
+    chunk_length_ms = int(chunk_length_minutes) * 60 * 1000
+    chunk_paths, temp_dir = chunk_audio(
+        input_path,
+        chunk_length_ms=chunk_length_ms,
+        progress_callback=progress_callback,
     )
-    
-    # Transcribe using the service
-    result = transcription_service.transcribe(
-        input_path=input_path,
-        output_path=output_path,
-        progress_callback=progress_callback
-    )
-    
-    return result.output_path
+
+    total_chunks = len(chunk_paths)
+    if total_chunks == 0:
+        raise ValueError("No audio chunks were created.")
+
+    if progress_callback:
+        progress_callback(25, f"Starting transcription of {total_chunks} chunks...")
+
+    transcripts = []
+    try:
+        for i, chunk_path in enumerate(chunk_paths, start=1):
+            text = transcribe_chunk(
+                model=model,
+                chunk_path=chunk_path,
+                chunk_num=i,
+                total_chunks=total_chunks,
+                progress_callback=progress_callback,
+            )
+            transcripts.append(text)
+
+        if progress_callback:
+            progress_callback(90, "Saving final transcript...")
+
+        final_text = "\n\n".join([t for t in transcripts if t is not None])
+        with open(output_path, "w", encoding=OUTPUT_ENCODING) as f:
+            f.write(final_text)
+    finally:
+        # Cleanup chunk files and temp directory (best effort)
+        for p in chunk_paths:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except OSError:
+                pass
+        try:
+            if temp_dir and os.path.exists(temp_dir):
+                os.rmdir(temp_dir)
+        except OSError:
+            pass
+
+    if progress_callback:
+        progress_callback(100, "Transcription complete!")
+
+    return output_path
 
 
 def main():

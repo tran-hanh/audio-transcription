@@ -4,12 +4,11 @@ Flask route handlers
 
 import json
 import logging
-import os
 import tempfile
-from typing import Tuple
 
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, jsonify, request
 
+from backend.job_store import JobStore
 from backend.services import FileUploadService, TranscriptionService
 from backend.validators import FileValidator
 
@@ -19,7 +18,8 @@ logger = logging.getLogger(__name__)
 def create_routes(
     config,
     transcription_service: TranscriptionService,
-    file_upload_service: FileUploadService
+    file_upload_service: FileUploadService,
+    job_store: JobStore,
 ) -> Blueprint:
     """
     Create and configure API routes.
@@ -34,7 +34,12 @@ def create_routes(
     """
     # Create a new blueprint for each call to avoid conflicts in tests
     api = Blueprint('api', __name__)
-    
+
+    @api.route('/', methods=['GET', 'OPTIONS'])
+    def root():
+        """Root health check for Render and other platforms that ping / by default."""
+        return jsonify({'status': 'ok', 'service': 'audio-transcription-api'}), 200
+
     @api.route('/health', methods=['GET', 'OPTIONS'])
     def health_check():
         """Health check endpoint"""
@@ -42,70 +47,74 @@ def create_routes(
     
     @api.route('/transcribe', methods=['POST', 'OPTIONS'])
     def transcribe():
-        """Handle audio file upload and transcription"""
+        """Accept upload, start async transcription, return 202 with job_id."""
         try:
-            # Validate request
             if 'audio' not in request.files:
                 return jsonify({'error': 'No audio file provided'}), 400
-            
+
             file = request.files['audio']
-            
-            # Get and validate chunk length
+
             try:
                 chunk_length = int(request.form.get('chunk_length', config.default_chunk_length))
             except (ValueError, TypeError):
                 chunk_length = config.default_chunk_length
-            
             chunk_length = file_upload_service.validator.validate_chunk_length(chunk_length)
-            
-            # Save uploaded file
+
             temp_dir = tempfile.mkdtemp(prefix='audio_upload_')
             try:
                 file_path = file_upload_service.save_uploaded_file(file, temp_dir)
             except ValueError as e:
                 return jsonify({'error': str(e)}), 400
-            
-            # Create generator for streaming response
-            def generate():
-                """Generator function for streaming transcription progress"""
-                try:
-                    yield from transcription_service.transcribe_file(
-                        file_path=file_path,
-                        chunk_length=chunk_length
-                    )
-                except SystemExit:
-                    # Handle worker timeout/shutdown gracefully
-                    logger.warning("SystemExit in transcription generator - worker timeout or shutdown")
-                    yield f"data: {json.dumps({'error': 'Worker timeout detected. The transcription may have been interrupted. Please try again with a smaller file or contact support.'})}\n\n"
-                except Exception as e:
-                    # Catch any other exceptions and log them
-                    logger.error(f"Error in transcription generator: {e}", exc_info=True)
-                    yield f"data: {json.dumps({'error': f'Transcription error: {str(e)}'})}\n\n"
-                finally:
-                    # Cleanup will be handled by service
-                    pass
-            
-            # Create streaming response (CORS headers handled by Flask-CORS)
-            # Important headers for long-running SSE connections:
-            # - Connection: keep-alive - keeps HTTP connection open
-            # - X-Accel-Buffering: no - prevents nginx/proxy buffering
-            # - Cache-Control: no-cache - prevents caching of SSE stream
-            response = Response(
-                stream_with_context(generate()),
-                mimetype='text/event-stream',
-                headers={
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'X-Accel-Buffering': 'no',
-                    'Transfer-Encoding': 'chunked',
-                }
+
+            is_valid, size_error = transcription_service.validator.validate_file_size(file_path)
+            if not is_valid:
+                return jsonify({'error': size_error}), 400
+
+            job_id = job_store.create(
+                status='processing',
+                progress=0,
+                message='File uploaded, starting transcription...',
             )
-            return response
-            
+            transcription_service.start_async_transcription(
+                file_path=file_path,
+                chunk_length=chunk_length,
+                job_id=job_id,
+            )
+            status_path = f'/transcribe/status/{job_id}'
+            logger.info("Accepted job %s; poll GET %s for progress", job_id[:8], status_path)
+            return (
+                jsonify({
+                    'job_id': job_id,
+                    'status': 'processing',
+                    'status_url': status_path,
+                }),
+                202,
+            )
         except Exception as e:
             logger.error(f"Request error: {e}", exc_info=True)
             return jsonify({'error': 'Internal server error'}), 500
-    
+
+    @api.route('/transcribe/status/<job_id>', methods=['GET', 'OPTIONS'])
+    def transcribe_status(job_id):
+        """Return current job status (for polling)."""
+        job = job_store.get(job_id)
+        if not job:
+            logger.warning("Status requested for unknown job: %s", job_id)
+            return jsonify({'error': 'Job not found'}), 404
+        # Log progress so you can see activity in the backend terminal
+        if job['status'] == 'processing':
+            logger.info("Job %s: %s%% - %s", job_id[:8], job.get('progress', 0), job.get('message', ''))
+        elif job['status'] in ('completed', 'failed'):
+            logger.info("Job %s: %s", job_id[:8], job['status'])
+        return jsonify({
+            'id': job['id'],
+            'status': job['status'],
+            'progress': job['progress'],
+            'message': job['message'],
+            'transcript': job.get('transcript'),
+            'error': job.get('error'),
+        })
+
     return api
 
 

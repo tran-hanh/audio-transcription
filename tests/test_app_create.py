@@ -6,12 +6,28 @@ Tests for backend/app.py create_app function
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from backend.app import create_app
 from backend.config import Config
 
 
 class TestCreateApp:
     """Tests for create_app function"""
+
+    @staticmethod
+    def _import_backend_app_fresh(*, ensure_api_key: bool = True):
+        """
+        Import backend.app after applying env changes.
+
+        backend.app creates a module-level `app = create_app()` on import, so tests must
+        control env vars before importing/reloading the module.
+        """
+        import sys
+        import importlib
+
+        if ensure_api_key and not os.environ.get("GEMINI_API_KEY"):
+            os.environ["GEMINI_API_KEY"] = "test-key"
+
+        sys.modules.pop("backend.app", None)
+        return importlib.import_module("backend.app")
 
     def test_create_app_with_config(self):
         """Test create_app with provided config"""
@@ -19,21 +35,27 @@ class TestCreateApp:
             gemini_api_key='test-key',
             max_file_size=100 * 1024 * 1024
         )
-        app = create_app(config)
+        backend_app = self._import_backend_app_fresh()
+        app = backend_app.create_app(config)
         assert app is not None
         assert app.config['MAX_CONTENT_LENGTH'] == config.max_file_size * 2
 
     def test_create_app_without_config(self, monkeypatch):
         """Test create_app loads config from environment"""
         monkeypatch.setenv('GEMINI_API_KEY', 'test-env-key')
-        app = create_app()
+        backend_app = self._import_backend_app_fresh()
+        app = backend_app.create_app()
         assert app is not None
 
     def test_create_app_config_error_handling(self, monkeypatch):
         """Test create_app handles configuration errors"""
         monkeypatch.delenv('GEMINI_API_KEY', raising=False)
         with pytest.raises(ValueError, match='GEMINI_API_KEY not configured'):
-            create_app()
+            import sys
+            import importlib
+
+            sys.modules.pop("backend.app", None)
+            importlib.import_module("backend.app")
 
     def test_create_app_error_handler(self, monkeypatch):
         """Test RequestEntityTooLarge error handler (covers lines 58-59)"""
@@ -42,7 +64,8 @@ class TestCreateApp:
             gemini_api_key='test-key',
             max_file_size=100 * 1024 * 1024  # 100MB
         )
-        app = create_app(config)
+        backend_app = self._import_backend_app_fresh()
+        app = backend_app.create_app(config)
         
         # Create a test client to trigger the error handler
         with app.test_client() as client:
@@ -64,6 +87,6 @@ class TestCreateApp:
         
         # The app is already created when imported
         # This test verifies the app instance exists
-        from backend.app import app
-        assert app is not None
+        backend_app = self._import_backend_app_fresh()
+        assert backend_app.app is not None
 

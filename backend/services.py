@@ -13,6 +13,7 @@ from typing import Generator, Optional
 from werkzeug.utils import secure_filename
 
 from backend.config import Config
+from backend.job_store import JobStore
 from backend.validators import FileValidator
 
 # Use gevent.sleep for gevent workers (non-blocking)
@@ -26,17 +27,54 @@ except ImportError:
 
 # Add src directory to path for transcription service
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from transcribe import transcribe_audio
+_project_root = Path(__file__).parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+from src.audio_processor import AudioProcessor
+from src.gemini_client import GeminiClient
+from src.transcription_service import TranscriptionService as CleanTranscriptionService
 
 logger = logging.getLogger(__name__)
+
+def transcribe_audio(
+    *,
+    input_path: str,
+    output_path: str,
+    api_key: str,
+    chunk_length_minutes: int,
+    progress_callback,
+) -> str:
+    """
+    Thin wrapper around the clean-architecture transcription pipeline.
+
+    Exists primarily so tests can patch `backend.services.transcribe_audio` and so the
+    backend implementation stays stable while the src/ internals evolve.
+    """
+    gemini_client = GeminiClient(api_key=api_key)
+    audio_processor = AudioProcessor(
+        chunk_length_ms=int(chunk_length_minutes) * 60 * 1000
+    )
+    clean_service = CleanTranscriptionService(
+        gemini_client=gemini_client,
+        audio_processor=audio_processor,
+        chunk_length_minutes=int(chunk_length_minutes),
+        language="vi",
+    )
+    result = clean_service.transcribe(
+        input_path=input_path,
+        output_path=output_path,
+        progress_callback=progress_callback,
+    )
+    return result.output_path
 
 
 class TranscriptionService:
     """Service for handling audio transcription"""
-    
-    def __init__(self, config: Config):
+
+    def __init__(self, config: Config, job_store: Optional[JobStore] = None):
         self.config = config
+        self.job_store = job_store
         self.validator = FileValidator(
             allowed_extensions=config.allowed_extensions,
             max_size=config.max_file_size
@@ -169,6 +207,13 @@ class TranscriptionService:
                     # Wrap in try-except to handle SystemExit from worker timeout gracefully
                     try:
                         SLEEP(0.5)  # Check every 500ms for progress updates
+                        # Ensure we yield execution even if SLEEP is mocked in tests.
+                        # If gevent is available, yield to the hub so greenlets can run.
+                        try:
+                            import gevent
+                            gevent.sleep(0)
+                        except ImportError:
+                            time.sleep(0)
                     except (SystemExit, KeyboardInterrupt):
                         # Worker is being killed (timeout or shutdown)
                         # Log the event
@@ -257,6 +302,83 @@ class TranscriptionService:
                 os.rmdir(temp_dir)
         except OSError as e:
             logger.warning(f"Error cleaning up temp files: {e}")
+
+    def start_async_transcription(
+        self,
+        file_path: str,
+        chunk_length: int,
+        job_id: str,
+    ) -> None:
+        """
+        Run transcription in the background and update job state in job_store.
+        Caller must have already created the job and saved the file.
+        """
+        if not self.job_store:
+            raise RuntimeError("JobStore is required for async transcription")
+
+        def progress_callback(progress: int, message: str) -> None:
+            self.job_store.update(job_id, progress=progress, message=message)
+
+        def run() -> None:
+            temp_dir = None
+            temp_output_path = None
+            try:
+                is_valid, err_msg = self.validator.validate_file_size(file_path)
+                if not is_valid:
+                    self.job_store.update(
+                        job_id, status="failed", progress=0, message=err_msg, error=err_msg
+                    )
+                    return
+                valid_chunk_length = self.validator.validate_chunk_length(chunk_length)
+                temp_dir = tempfile.mkdtemp(prefix="audio_upload_")
+                temp_output_path = os.path.join(temp_dir, "transcript.txt")
+                self.job_store.update(job_id, progress=5, message="Starting transcription...")
+                output_path = transcribe_audio(
+                    input_path=file_path,
+                    output_path=temp_output_path,
+                    api_key=self.config.gemini_api_key,
+                    chunk_length_minutes=valid_chunk_length,
+                    progress_callback=progress_callback,
+                )
+                if not os.path.exists(output_path):
+                    self.job_store.update(
+                        job_id,
+                        status="failed",
+                        progress=95,
+                        message="Transcript file not found",
+                        error="Transcript file not found",
+                    )
+                    return
+                with open(output_path, "r", encoding="utf-8") as f:
+                    transcript = f.read()
+                if not transcript or not transcript.strip():
+                    transcript = "[No transcript generated. The audio file may be empty or contain no speech.]"
+                self.job_store.update(
+                    job_id,
+                    status="completed",
+                    progress=100,
+                    message="Transcription complete!",
+                    transcript=transcript,
+                )
+            except Exception as e:
+                logger.exception("Async transcription failed for job %s", job_id)
+                self.job_store.update(
+                    job_id,
+                    status="failed",
+                    message=str(e),
+                    error=str(e),
+                )
+            finally:
+                self._cleanup_temp_files(temp_dir, file_path, temp_output_path)
+
+        # Use a real OS thread for background work.
+        #
+        # Rationale: gevent greenlets are cooperative; this pipeline does blocking subprocess/file I/O
+        # and CPU work. Running it in a greenlet can starve the Flask dev server (and even status
+        # polling) making the app appear "stuck". A daemon thread keeps the HTTP server responsive.
+        import threading
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
 
 
 class FileUploadService:

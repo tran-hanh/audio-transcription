@@ -65,6 +65,12 @@ class GeminiClient:
                 if 'generateContent' in m.supported_generation_methods
             ]
         except Exception as e:
+            err_str = str(e).lower()
+            if "api_key_invalid" in err_str or "api key not valid" in err_str or "invalid api key" in err_str:
+                raise ModelInitializationError(
+                    "Gemini API key is invalid or expired. Get a valid key at "
+                    "https://aistudio.google.com/apikey and set GEMINI_API_KEY in your environment."
+                ) from e
             raise ModelInitializationError(
                 f"Could not list available models: {e}"
             ) from e

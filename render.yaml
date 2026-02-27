@@ -5,6 +5,7 @@ services:
     pythonVersion: 3.12.0
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -c gunicorn_config.py backend.app:app
+    healthCheckPath: /health
     envVars:
       - key: GEMINI_API_KEY
         sync: false  # Set this in Render dashboard

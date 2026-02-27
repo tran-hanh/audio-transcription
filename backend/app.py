@@ -4,20 +4,6 @@ Flask API server for audio transcription
 Handles file uploads and transcription requests
 """
 
-# CRITICAL: Monkey patch gevent BEFORE any other imports
-# This makes subprocess calls (used by pydub) non-blocking for gevent workers
-# Without this, pydub's ffmpeg subprocess calls will block the gevent worker
-# and cause worker timeouts
-try:
-    from gevent import monkey
-    # Patch all standard library modules to be gevent-compatible
-    # This includes subprocess, which pydub uses for ffmpeg calls
-    monkey.patch_all()
-except ImportError:
-    # gevent not available, continue without monkey patching
-    # This should not happen in production since gevent is required
-    pass
-
 import logging
 import os
 import warnings
@@ -30,6 +16,7 @@ from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from backend.config import Config
+from backend.job_store import JobStore
 from backend.routes import create_routes
 from backend.services import FileUploadService, TranscriptionService
 from backend.validators import FileValidator
@@ -53,15 +40,14 @@ def create_app(config: Config = None) -> Flask:
         Configured Flask application
     """
     app = Flask(__name__)
-    # Configure CORS explicitly to allow GitHub Pages and local development
-    # Using '*' for origins to allow all origins (can be restricted later if needed)
+    # Configure CORS for GitHub Pages / Render e2e: allow cross-origin requests and SSE streaming
     CORS(
         app,
-        origins='*',  # Allow all origins for now
+        origins='*',
         methods=['GET', 'POST', 'OPTIONS'],
-        allow_headers=['Content-Type', 'Authorization'],
-        expose_headers=['Content-Type'],
-        supports_credentials=False
+        allow_headers=['Content-Type', 'Authorization', 'Accept'],
+        expose_headers=['Content-Type', 'Cache-Control', 'Connection'],
+        supports_credentials=False,
     )
     
     # Load configuration
@@ -85,19 +71,21 @@ def create_app(config: Config = None) -> Flask:
         max_size_mb = config.max_file_size / (1024 * 1024)
         return jsonify({'error': f'File too large. Maximum size: {max_size_mb:.0f} MB'}), 413
     
-    # Initialize services
+    # Initialize job store and services
+    job_store = JobStore(max_age_seconds=3600)
     validator = FileValidator(
         allowed_extensions=config.allowed_extensions,
         max_size=config.max_file_size
     )
-    transcription_service = TranscriptionService(config)
+    transcription_service = TranscriptionService(config, job_store=job_store)
     file_upload_service = FileUploadService(validator)
-    
+
     # Register routes
     api_blueprint = create_routes(
         config=config,
         transcription_service=transcription_service,
-        file_upload_service=file_upload_service
+        file_upload_service=file_upload_service,
+        job_store=job_store,
     )
     app.register_blueprint(api_blueprint)
     
