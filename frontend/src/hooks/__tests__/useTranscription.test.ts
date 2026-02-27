@@ -219,7 +219,7 @@ describe('useTranscription', () => {
     })
 
     ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
-      async (file, chunkLength, onProgress) => {
+      async (_file, _chunkLength, onProgress) => {
         // Simulate progress updates
         onProgress({ progress: 25, message: 'Processing...' })
         await new Promise((resolve) => setTimeout(resolve, 100))
@@ -270,7 +270,7 @@ describe('useTranscription', () => {
 
     // Mock startTime but with progress that would cause invalid calculation
     ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
-      async (file, chunkLength, onProgress) => {
+      async (_file, _chunkLength, onProgress) => {
         onProgress({ progress: 0, message: 'Starting...' })
         await new Promise((resolve) => setTimeout(resolve, 10))
         return 'Test transcript'
@@ -296,7 +296,7 @@ describe('useTranscription', () => {
     let progressCallback: ((progress: { progress: number; message: string }) => void) | null = null
 
     ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
-      async (file, chunkLength, onProgress) => {
+      async (_file, _chunkLength, onProgress) => {
         progressCallback = onProgress
         // Don't complete immediately, keep it processing
         await new Promise((resolve) => setTimeout(resolve, 100))
@@ -336,7 +336,7 @@ describe('useTranscription', () => {
 
     const startTime = Date.now()
     ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
-      async (file, chunkLength, onProgress) => {
+      async (_file, _chunkLength, onProgress) => {
         // Simulate progress going backwards (shouldn't happen but test edge case)
         vi.spyOn(Date, 'now').mockReturnValue(startTime + 1000)
         onProgress({ progress: 10, message: 'Processing...' })
@@ -365,7 +365,7 @@ describe('useTranscription', () => {
     })
 
     ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
-      async (file, chunkLength, onProgress) => {
+      async (_file, _chunkLength, onProgress) => {
         // This shouldn't happen in practice, but test the branch
         onProgress({ progress: 50, message: 'Processing...' })
         await new Promise((resolve) => setTimeout(resolve, 10))
