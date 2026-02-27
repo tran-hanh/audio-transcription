@@ -93,6 +93,27 @@ describe('TranscriptionService', () => {
       ).rejects.toThrow('Server error')
     })
 
+    it('should retry on network error before failing', async () => {
+      const networkError = new TypeError('Failed to fetch')
+      const finalResponse: Response = {
+        ok: false,
+        status: 500,
+        json: vi.fn().mockResolvedValue({ error: 'Server error' }),
+      } as unknown as Response
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(networkError)
+        .mockResolvedValueOnce(finalResponse)
+
+      const progress = vi.fn()
+
+      await expect(service.transcribe(mockFile, 12, progress)).rejects.toThrow('Server error')
+
+      expect(progress).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('Connecting to server...') })
+      )
+    })
+
     it('should call onProgress when polling status', async () => {
       const progressCallback = vi.fn()
       const jobId = 'job-456'
@@ -150,6 +171,23 @@ describe('TranscriptionService', () => {
       expect(result).toBe('Test transcript')
     })
 
+    it('should throw when status check response is not ok', async () => {
+      const jobId = 'job-status-error'
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: 202,
+        ok: true,
+        json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+      } as unknown as Response)
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      } as unknown as Response)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'Status check failed: 500'
+      )
+    })
+
     it('should throw when job completes with no transcript', async () => {
       const jobId = 'job-no-transcript'
       ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
@@ -203,6 +241,45 @@ describe('TranscriptionService', () => {
         'Server did not return a job id'
       )
     })
+
+    it('should throw when initial response is not 202', async () => {
+      const okResponse: Response = {
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({}),
+      } as unknown as Response
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(okResponse)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'Unexpected response from server.'
+      )
+    })
+
+    it('should throw when polling exceeds max wait time', async () => {
+      const jobId = 'job-timeout'
+      const nowSpy = vi.spyOn(Date, 'now')
+      const start = 1_000_000
+      const maxWaitMs = 30 * 60 * 1000
+
+      // First call in service: startedAt
+      nowSpy.mockReturnValueOnce(start)
+      // Next call in loop: exceed maxWait immediately
+      nowSpy.mockReturnValue(start + maxWaitMs + 1)
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: 202,
+        ok: true,
+        json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+      } as unknown as Response)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'Transcription is taking longer than expected'
+      )
+
+      nowSpy.mockRestore()
+    })
+
   })
 })
 
