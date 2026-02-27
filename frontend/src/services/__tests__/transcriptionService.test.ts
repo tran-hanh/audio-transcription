@@ -55,13 +55,12 @@ describe('TranscriptionService', () => {
 
     it('should send file and chunk length then poll status', async () => {
       const jobId = 'test-job-123'
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           status: 202,
           ok: true,
           json: vi.fn().mockResolvedValueOnce({ job_id: jobId, status: 'processing' }),
         } as unknown as Response)
-        .mockResolvedValueOnce({
+        ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           ok: true,
           json: vi.fn().mockResolvedValueOnce({
             status: 'completed',
@@ -97,13 +96,12 @@ describe('TranscriptionService', () => {
     it('should call onProgress when polling status', async () => {
       const progressCallback = vi.fn()
       const jobId = 'job-456'
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           status: 202,
           ok: true,
           json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
         } as unknown as Response)
-        .mockResolvedValueOnce({
+        ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           ok: true,
           json: vi.fn().mockResolvedValueOnce({
             status: 'processing',
@@ -111,7 +109,7 @@ describe('TranscriptionService', () => {
             message: 'Processing...',
           }),
         } as unknown as Response)
-        .mockResolvedValueOnce({
+        ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           ok: true,
           json: vi.fn().mockResolvedValueOnce({
             status: 'completed',
@@ -133,13 +131,12 @@ describe('TranscriptionService', () => {
 
     it('should return transcript when job completes', async () => {
       const jobId = 'job-789'
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           status: 202,
           ok: true,
           json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
         } as unknown as Response)
-        .mockResolvedValueOnce({
+        ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           ok: true,
           json: vi.fn().mockResolvedValueOnce({
             status: 'completed',
@@ -155,13 +152,12 @@ describe('TranscriptionService', () => {
 
     it('should throw when job completes with no transcript', async () => {
       const jobId = 'job-no-transcript'
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           status: 202,
           ok: true,
           json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
         } as unknown as Response)
-        .mockResolvedValueOnce({
+        ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           ok: true,
           json: vi.fn().mockResolvedValueOnce({
             status: 'completed',
@@ -178,13 +174,12 @@ describe('TranscriptionService', () => {
 
     it('should throw when job status is failed', async () => {
       const jobId = 'job-fail'
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           status: 202,
           ok: true,
           json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
         } as unknown as Response)
-        .mockResolvedValueOnce({
+        ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
           ok: true,
           json: vi.fn().mockResolvedValueOnce({
             status: 'failed',
@@ -198,7 +193,7 @@ describe('TranscriptionService', () => {
     })
 
     it('should throw when 202 response has no job_id', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         status: 202,
         ok: true,
         json: vi.fn().mockResolvedValueOnce({}),
