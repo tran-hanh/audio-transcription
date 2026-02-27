@@ -79,9 +79,15 @@ export class TranscriptionService {
         throw new Error('Server did not return a job id.');
       }
       const statusUrl = `${this.baseUrl}${API_ENDPOINTS.TRANSCRIBE_STATUS(jobId)}`;
-      const pollIntervalMs = 1500;
+      // Adaptive polling: start at 3s, increase to 5s if no progress change
+      // This reduces API calls significantly (from ~800 to ~240-400 per 20min job)
+      const basePollIntervalMs = 3000; // 3 seconds base
+      const slowPollIntervalMs = 5000; // 5 seconds when progress is stable
       const maxWaitMs = 30 * 60 * 1000; // 30 minutes
       const startedAt = Date.now();
+      let lastProgress = -1;
+      let lastProgressChangeTime = Date.now();
+      let currentPollInterval = basePollIntervalMs;
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -99,6 +105,20 @@ export class TranscriptionService {
           transcript?: string;
           error?: string;
         };
+        
+        // Adaptive polling: if progress changed, reset to faster polling
+        if (job.progress !== lastProgress) {
+          lastProgress = job.progress;
+          lastProgressChangeTime = Date.now();
+          currentPollInterval = basePollIntervalMs;
+        } else {
+          // If no progress change for 30s, slow down polling
+          const timeSinceLastChange = Date.now() - lastProgressChangeTime;
+          if (timeSinceLastChange > 30000) {
+            currentPollInterval = slowPollIntervalMs;
+          }
+        }
+        
         onProgress({ progress: job.progress, message: job.message || 'Processing...' });
         if (job.status === 'completed') {
           if (job.transcript === undefined || job.transcript === null) {
@@ -109,7 +129,7 @@ export class TranscriptionService {
         if (job.status === 'failed') {
           throw new Error(job.error || 'Transcription failed.');
         }
-        await delay(pollIntervalMs);
+        await delay(currentPollInterval);
       }
     }
 
