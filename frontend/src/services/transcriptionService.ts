@@ -3,7 +3,7 @@
  */
 
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
-import { TranscriptionProgress, TranscriptionResponse } from '../types';
+import { TranscriptionProgress } from '../types';
 
 const COLD_START_RETRIES = 3;
 const COLD_START_DELAYS_MS = [3000, 6000, 10000];
@@ -39,11 +39,12 @@ export class TranscriptionService {
         if (response.status === 502 || response.status === 503) {
           lastError = new Error('Server is starting or temporarily unavailable. Please wait.');
           if (attempt < COLD_START_RETRIES) {
+            const delayMs = COLD_START_DELAYS_MS[attempt]!;
             onProgress({
               progress: 0,
               message: `Server waking up... (retry ${attempt + 1}/${COLD_START_RETRIES + 1})`,
             });
-            await delay(COLD_START_DELAYS_MS[attempt]);
+            await delay(delayMs);
             continue;
           }
         }
@@ -54,11 +55,12 @@ export class TranscriptionService {
           e instanceof TypeError && (e.message === 'Failed to fetch' || e.message.includes('NetworkError'));
         if (isNetworkError && attempt < COLD_START_RETRIES) {
           lastError = e as Error;
+          const delayMs = COLD_START_DELAYS_MS[attempt]!;
           onProgress({
             progress: 0,
             message: `Connecting to server... (retry ${attempt + 1}/${COLD_START_RETRIES + 1})`,
           });
-          await delay(COLD_START_DELAYS_MS[attempt]);
+          await delay(delayMs);
           continue;
         }
         throw e;

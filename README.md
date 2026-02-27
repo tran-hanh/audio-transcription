@@ -313,10 +313,18 @@ All code changes and new features must follow **clean code** principles and **TD
 
 ### Testing
 
-Run tests locally:
+**Backend tests and coverage (recommended before pushing):**
 ```bash
 pip install -r requirements-test.txt
 pytest tests/ -v
+```
+
+**Frontend type-check and tests (from `frontend/`):**
+```bash
+cd frontend
+npm install
+npm run type-check
+npm test
 ```
 
 See `tests/README.md` for detailed testing documentation.
