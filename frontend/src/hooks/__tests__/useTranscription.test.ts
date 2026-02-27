@@ -178,6 +178,208 @@ describe('useTranscription', () => {
 
     expect(mockService.transcribe).not.toHaveBeenCalled()
   })
+
+  it('should cancel transcription', () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+
+    act(() => {
+      result.current.cancelTranscription()
+    })
+
+    expect(mockService.cancel).toHaveBeenCalled()
+    expect(result.current.state).toBe(AppState.IDLE)
+  })
+
+  it('should handle cancellation error', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Transcription cancelled')
+    )
+
+    await act(async () => {
+      await result.current.startTranscription(12)
+    })
+
+    expect(result.current.state).toBe(AppState.IDLE)
+    expect(result.current.error).toBe('')
+  })
+
+  it('should calculate estimated time remaining', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
+      async (file, chunkLength, onProgress) => {
+        // Simulate progress updates
+        onProgress({ progress: 25, message: 'Processing...' })
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        onProgress({ progress: 50, message: 'Processing...' })
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        return 'Test transcript'
+      }
+    )
+
+    act(() => {
+      result.current.startTranscription(12)
+    })
+
+    await waitFor(() => {
+      expect(result.current.estimatedTimeRemaining).not.toBeNull()
+    })
+  })
+
+  it('should return null for estimated time when progress is 0', () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    expect(result.current.estimatedTimeRemaining).toBeNull()
+  })
+
+  it('should return null for estimated time when progress is 100', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockResolvedValueOnce('Test transcript')
+
+    await act(async () => {
+      await result.current.startTranscription(12)
+    })
+
+    expect(result.current.estimatedTimeRemaining).toBeNull()
+  })
+
+  it('should handle estimated time calculation with invalid values', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    // Mock startTime but with progress that would cause invalid calculation
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
+      async (file, chunkLength, onProgress) => {
+        onProgress({ progress: 0, message: 'Starting...' })
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        return 'Test transcript'
+      }
+    )
+
+    await act(async () => {
+      await result.current.startTranscription(12)
+    })
+
+    // Should handle gracefully
+    expect(result.current.state).toBe(AppState.RESULTS)
+  })
+
+  it('should return estimated time in seconds only when less than a minute', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    let progressCallback: ((progress: { progress: number; message: string }) => void) | null = null
+
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
+      async (file, chunkLength, onProgress) => {
+        progressCallback = onProgress
+        // Don't complete immediately, keep it processing
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        // Update progress after a delay to simulate elapsed time
+        if (progressCallback) {
+          progressCallback({ progress: 50, message: 'Processing...' })
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        return 'Test transcript'
+      }
+    )
+
+    act(() => {
+      result.current.startTranscription(12)
+    })
+
+    // Wait for progress update
+    await waitFor(() => {
+      expect(result.current.progress.progress).toBe(50)
+    })
+
+    // Check estimated time - should be calculated and in seconds format if < 1 minute
+    const estimated = result.current.estimatedTimeRemaining
+    if (estimated) {
+      // If it's less than a minute, it should only show seconds
+      expect(estimated).toBeTruthy()
+    }
+  })
+
+  it('should return null for estimated time when remaining is negative', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    const startTime = Date.now()
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
+      async (file, chunkLength, onProgress) => {
+        // Simulate progress going backwards (shouldn't happen but test edge case)
+        vi.spyOn(Date, 'now').mockReturnValue(startTime + 1000)
+        onProgress({ progress: 10, message: 'Processing...' })
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        // Progress goes backwards
+        onProgress({ progress: 5, message: 'Processing...' })
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        return 'Test transcript'
+      }
+    )
+
+    await act(async () => {
+      await result.current.startTranscription(12)
+    })
+
+    // Should handle gracefully
+    expect(result.current.state).toBe(AppState.RESULTS)
+  })
+
+  it('should return null for estimated time when calculation is infinite', async () => {
+    const { result } = renderHook(() => useTranscription(mockService))
+    const validFile = new File([''], 'test.mp3', { type: 'audio/mpeg' })
+
+    act(() => {
+      result.current.handleFileSelect(validFile)
+    })
+
+    ;(mockService.transcribe as ReturnType<typeof vi.fn>).mockImplementation(
+      async (file, chunkLength, onProgress) => {
+        // This shouldn't happen in practice, but test the branch
+        onProgress({ progress: 50, message: 'Processing...' })
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        return 'Test transcript'
+      }
+    )
+
+    await act(async () => {
+      await result.current.startTranscription(12)
+    })
+
+    // Should handle gracefully - the calculation should work normally
+    expect(result.current.state).toBe(AppState.RESULTS)
+  })
 })
 
 

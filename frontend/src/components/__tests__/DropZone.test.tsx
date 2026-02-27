@@ -90,6 +90,90 @@ describe('DropZone', () => {
     expect(fileInput).toBeTruthy()
     expect(fileInput).toBeDisabled()
   })
+
+  it('should handle drag leave', () => {
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
+
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
+
+    fireEvent.dragOver(dropZone)
+    expect(dropZone).toHaveClass('dragover')
+
+    fireEvent.dragLeave(dropZone)
+    expect(dropZone).not.toHaveClass('dragover')
+  })
+
+  it('should handle keyboard Enter key', () => {
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
+
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    const clickSpy = vi.spyOn(fileInput, 'click')
+
+    fireEvent.keyDown(dropZone, { key: 'Enter' })
+    expect(clickSpy).toHaveBeenCalled()
+  })
+
+  it('should handle keyboard Space key', () => {
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
+
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    const clickSpy = vi.spyOn(fileInput, 'click')
+
+    fireEvent.keyDown(dropZone, { key: ' ' })
+    expect(clickSpy).toHaveBeenCalled()
+  })
+
+  it('should not handle keyboard events when disabled', () => {
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} disabled={true} />)
+
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    const clickSpy = vi.spyOn(fileInput, 'click')
+
+    fireEvent.keyDown(dropZone, { key: 'Enter' })
+    expect(clickSpy).not.toHaveBeenCalled()
+  })
+
+  it('should display file info when selectedFile is provided', () => {
+    const selectedFile = new File(['test'], 'audio.mp3', { type: 'audio/mpeg' })
+    render(<DropZone onFileSelect={mockOnFileSelect} selectedFile={selectedFile} />)
+
+    expect(screen.getByText('Selected File')).toBeInTheDocument()
+    expect(screen.getByText('Name:')).toBeInTheDocument()
+    expect(screen.getByText('Size:')).toBeInTheDocument()
+    expect(screen.getByText('Type:')).toBeInTheDocument()
+    expect(screen.getByText('audio.mp3')).toBeInTheDocument()
+  })
+
+  it('should display file type from file.type when available', () => {
+    const selectedFile = new File(['test'], 'audio.mp3', { type: 'audio/mpeg' })
+    render(<DropZone onFileSelect={mockOnFileSelect} selectedFile={selectedFile} />)
+
+    expect(screen.getByText('audio/mpeg')).toBeInTheDocument()
+  })
+
+  it('should display file type from extension when type is missing', () => {
+    const selectedFile = new File(['test'], 'audio.wav', { type: '' })
+    render(<DropZone onFileSelect={mockOnFileSelect} selectedFile={selectedFile} />)
+
+    expect(screen.getByText('WAV')).toBeInTheDocument()
+  })
+
+  it('should handle drop without file', () => {
+    const { container } = render(<DropZone onFileSelect={mockOnFileSelect} />)
+
+    const dropZone = container.querySelector('label.drop-zone') as HTMLElement
+
+    fireEvent.drop(dropZone, {
+      dataTransfer: {
+        files: [],
+      },
+    })
+
+    expect(mockOnFileSelect).not.toHaveBeenCalled()
+  })
 })
 
 

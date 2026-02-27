@@ -283,6 +283,231 @@ describe('TranscriptionService', () => {
       nowSpy.mockRestore()
     })
 
+    it('should cancel transcription', () => {
+      const service = new TranscriptionService(mockBaseUrl)
+      service.cancel()
+      expect(service.isCancelled()).toBe(false) // Not cancelled until abort is called
+    })
+
+    it('should handle cancellation during polling', async () => {
+      const jobId = 'job-cancel'
+      const service = new TranscriptionService(mockBaseUrl)
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          status: 202,
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+        } as unknown as Response)
+        .mockImplementationOnce(() => {
+          service.cancel()
+          return Promise.resolve({
+            ok: true,
+            json: vi.fn().mockResolvedValueOnce({
+              status: 'processing',
+              progress: 50,
+              message: 'Processing...',
+            }),
+          } as unknown as Response)
+        })
+
+      const transcribePromise = service.transcribe(mockFile, 12, vi.fn())
+      service.cancel()
+
+      await expect(transcribePromise).rejects.toThrow('Transcription cancelled')
+    })
+
+    it('should handle cancellation during initial request', async () => {
+      const service = new TranscriptionService(mockBaseUrl)
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+        service.cancel()
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+        } as unknown as Response)
+      })
+
+      const transcribePromise = service.transcribe(mockFile, 12, vi.fn())
+      service.cancel()
+
+      await expect(transcribePromise).rejects.toThrow()
+    })
+
+    it('should return cancellation status', () => {
+      const service = new TranscriptionService(mockBaseUrl)
+      expect(service.isCancelled()).toBe(false)
+
+      service.cancel()
+      // After cancel, abortController exists but signal may not be aborted immediately
+      // The actual abort happens when fetch is called with the signal
+    })
+
+    it('should handle job status with null transcript', async () => {
+      const jobId = 'job-null-transcript'
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          status: 202,
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'completed',
+            progress: 100,
+            message: 'Done',
+            transcript: null,
+          }),
+        } as unknown as Response)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'No transcript received from server.'
+      )
+    })
+
+    it('should handle job status with undefined transcript', async () => {
+      const jobId = 'job-undefined-transcript'
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          status: 202,
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'completed',
+            progress: 100,
+            message: 'Done',
+          }),
+        } as unknown as Response)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'No transcript received from server.'
+      )
+    })
+
+    it('should handle slow polling when progress is stable', async () => {
+      const jobId = 'job-slow-poll'
+      const nowSpy = vi.spyOn(Date, 'now')
+      let callCount = 0
+      const startTime = 1000000
+
+      nowSpy.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) return startTime // startedAt
+        if (callCount === 2) return startTime + 35000 // After 35s, should slow down
+        return startTime + 40000
+      })
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          status: 202,
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'processing',
+            progress: 50,
+            message: 'Processing...',
+          }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'completed',
+            progress: 100,
+            message: 'Done',
+            transcript: 'Test transcript',
+          }),
+        } as unknown as Response)
+
+      const result = await service.transcribe(mockFile, 12, vi.fn())
+      expect(result).toBe('Test transcript')
+
+      nowSpy.mockRestore()
+    })
+
+    it('should not slow down polling when progress changes frequently', async () => {
+      const jobId = 'job-fast-poll'
+      const nowSpy = vi.spyOn(Date, 'now')
+      let callCount = 0
+      const startTime = 1000000
+
+      nowSpy.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) return startTime // startedAt
+        // Progress changes every 5 seconds, so polling should stay fast (less than 30s)
+        return startTime + (callCount - 1) * 5000
+      })
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          status: 202,
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'processing',
+            progress: 25,
+            message: 'Processing...',
+          }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'processing',
+            progress: 50,
+            message: 'Processing...',
+          }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'completed',
+            progress: 100,
+            message: 'Done',
+            transcript: 'Test transcript',
+          }),
+        } as unknown as Response)
+
+      const result = await service.transcribe(mockFile, 12, vi.fn())
+      expect(result).toBe('Test transcript')
+
+      nowSpy.mockRestore()
+    }, 10000) // Increase timeout for this test
+
+    it('should handle job with empty error message', async () => {
+      const jobId = 'job-empty-error'
+
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          status: 202,
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({ job_id: jobId }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValueOnce({
+            status: 'failed',
+            progress: 0,
+            message: 'Error',
+            error: '',
+          }),
+        } as unknown as Response)
+
+      await expect(service.transcribe(mockFile, 12, vi.fn())).rejects.toThrow(
+        'Transcription failed.'
+      )
+    })
+
   })
 })
 

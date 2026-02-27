@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.9% </span>
+                <span class="strong">91.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>50/55</span>
+                <span class='fraction'>55/60</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.9% </span>
+                <span class="strong">91.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>50/55</span>
+                <span class='fraction'>55/60</span>
             </div>
         
             
@@ -152,7 +152,14 @@
 <a name='L87'></a><a href='#L87'>87</a>
 <a name='L88'></a><a href='#L88'>88</a>
 <a name='L89'></a><a href='#L89'>89</a>
-<a name='L90'></a><a href='#L90'>90</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -180,6 +187,8 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
@@ -198,6 +207,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
@@ -216,6 +226,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -253,6 +265,7 @@ import { DropZone } from './components/DropZone';
 import { ProcessingSection } from './components/ProcessingSection';
 import { OutputSection } from './components/OutputSection';
 import { ErrorAlert } from './components/ErrorAlert';
+import { ThemeToggle } from './components/ThemeToggle';
 import { API_BASE_URL } from './config/api';
 import './App.css';
 &nbsp;
@@ -265,8 +278,10 @@ export const App: React.FC = () =&gt; {
     transcript,
     error,
     progress,
+    estimatedTimeRemaining,
     handleFileSelect,
     startTranscription,
+    cancelTranscription,
     reset,
   } = useTranscription(transcriptionService);
 &nbsp;
@@ -289,6 +304,7 @@ export const App: React.FC = () =&gt; {
 &nbsp;
   return (
     &lt;div className="main-container"&gt;
+      &lt;ThemeToggle /&gt;
       &lt;header className="header-section"&gt;
         &lt;h1&gt;Audio Scribe&lt;/h1&gt;
         &lt;p className="subtitle"&gt;
@@ -300,7 +316,7 @@ export const App: React.FC = () =&gt; {
 &nbsp;
       {state === AppState.IDLE &amp;&amp; (
         &lt;div className="drop-zone-section"&gt;
-          &lt;DropZone onFileSelect={handleFileSelect} disabled={false} /&gt;
+          &lt;DropZone onFileSelect={handleFileSelect} disabled={false} selectedFile={selectedFile} /&gt;
         &lt;/div&gt;
       )}
 &nbsp;
@@ -309,6 +325,8 @@ export const App: React.FC = () =&gt; {
           fileName={selectedFile.name}
           progress={progress.progress}
           message={progress.message || 'Processing...'}
+          estimatedTimeRemaining={estimatedTimeRemaining}
+          onCancel={cancelTranscription}
         /&gt;
       )}
 &nbsp;
@@ -322,7 +340,7 @@ export const App: React.FC = () =&gt; {
 &nbsp;
       {state === AppState.ERROR &amp;&amp; (
         &lt;div className="drop-zone-section"&gt;
-          &lt;DropZone onFileSelect={handleFileSelect} disabled={false} /&gt;
+          &lt;DropZone onFileSelect={handleFileSelect} disabled={false} selectedFile={selectedFile} /&gt;
         &lt;/div&gt;
       )}
     &lt;/div&gt;
@@ -337,7 +355,7 @@ export const App: React.FC = () =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-27T03:38:08.403Z
+                at 2026-02-27T04:35:28.504Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
